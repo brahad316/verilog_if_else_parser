@@ -119,21 +119,12 @@ module if_else_parser (
                                     comparator <= LE;
                                 else
                                     comparator <= LT; // single-character "<"
-                                // Prepare for number parsing:
-                                num_buffer     <= 0;
-                                parsing_number <= 0;
-                                num_done       <= 0;
-                                state          <= READ_VALC;
                             end
                             ">": begin
                                 if(ascii_char=="=")
                                     comparator <= GE;
                                 else if(is_digit)
                                     comparator <= GT; // single-character ">" 
-                                num_buffer     <= 0;
-                                parsing_number <= 0;
-                                num_done       <= 0;
-                                state          <= READ_VALC;
                             end
                             "=": begin
                                 if(ascii_char=="=")
@@ -141,10 +132,6 @@ module if_else_parser (
                                 else begin
                                     error_flag <= 1;
                                 end
-                                num_buffer     <= 0;
-                                parsing_number <= 0;
-                                num_done       <= 0;
-                                state          <= READ_VALC;
                             end
                             "!": begin
                                 if(ascii_char=="=")
@@ -152,18 +139,17 @@ module if_else_parser (
                                 else begin
                                     error_flag <= 1;
                                 end
-                                num_buffer     <= 0;
-                                parsing_number <= 0;
-                                num_done       <= 0;
-                                state          <= READ_VALC;
                             end
                             default: state <= IDLE;
                         endcase
+                        $display("op_first: %c, ascii_char: %c, comparator: %b", op_first, ascii_char, comparator);
+                        state <= READ_VALC;
                     end
                 end
 
                 // Accumulate condition value (valC)
                 READ_VALC: begin
+                    $display("new_char: %b, ascii_char: %c, is_digit: %b", new_char, ascii_char, is_digit);
                     if(new_char) begin
                         if(is_digit) begin
                             num_buffer     <= (num_buffer * 10) + (ascii_char - "0");
@@ -270,6 +256,7 @@ module if_else_parser (
 
                 // Evaluate the condition using the selected comparator.
                 EVALUATE: begin
+                    $display("x: %d, valC: %d, comparator: %b", x, valC, comparator);
                     case(comparator)
                         EQ:  if(x == valC) p <= const1; else p <= const2;
                         NE:  if(x != valC) p <= const1; else p <= const2;
