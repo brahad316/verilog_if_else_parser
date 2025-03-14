@@ -54,7 +54,7 @@ module if_else_parser_tb();
         send_char("x");
         // "==" (or any other comparator)
         send_char(">");  
-        // send_char("=");  
+        send_char("=");  
         // valC
         send_char("5");
         // ")"
