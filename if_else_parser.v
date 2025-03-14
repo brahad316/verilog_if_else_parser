@@ -23,8 +23,7 @@ module if_else_parser (
               READ_ASSIGNMENT2          = 10, // expecting letter "p" for else branch
               READ_ASSIGNMENT_OPERATOR2 = 11, // expecting "<=" for else branch
               READ_CONST2               = 12,
-              EVALUATE                  = 13,
-              OUTPUT                    = 14;
+              EVALUATE                  = 13;
 
     reg [3:0] state;
 
@@ -51,13 +50,16 @@ module if_else_parser (
     wire is_digit = (ascii_char >= "0" && ascii_char <= "9");
 
     // Edge-detect char_valid: process each character only once.
-    reg char_valid_d;
-    always @(posedge clk or posedge rst)
-        if (rst)
-            char_valid_d <= 0;
-        else
-            char_valid_d <= char_valid;
-    wire new_char = char_valid & ~char_valid_d;
+    // not needed anymore - doing continuous assignment now.
+    // wire char_valid_d;
+    // always @(posedge clk or posedge rst)
+    //     if (rst)
+    //         char_valid_d <= 0;
+    //     else
+    //         char_valid_d <= char_valid;
+    // assign char_valid_d = char_valid;
+    // wire new_char = char_valid & ~char_valid_d;
+    wire new_char = char_valid;
 
     // FSM
     always @(posedge clk or posedge rst) begin
@@ -77,8 +79,8 @@ module if_else_parser (
             op_first        <= 0;
         end
         else begin
-            $display("State: %d, char: %c (%h), x: %d, valC: %d, p: %d, done: %b, error: %b", 
-                      state, ascii_char, ascii_char, x, valC, p, parsing_done, error_flag);
+            $display("State: %d, char: %c (%h), new_char: %b, x: %d, valC: %d, p: %d, done: %b, error: %b", 
+                      state, ascii_char, ascii_char, new_char, x, valC, p, parsing_done, error_flag);
             case(state)
                 IDLE: begin
                     if(new_char && ascii_char=="i")
@@ -168,14 +170,14 @@ module if_else_parser (
                             end
                             default: state <= IDLE;
                         endcase
-                        $display("op_first: %c, ascii_char: %c, comparator: %b", op_first, ascii_char, comparator);
+                        // $display("op_first: %c, ascii_char: %c, comparator: %b", op_first, ascii_char, comparator);
                     end
                 end
 
 
                 // Accumulate condition value (valC)
                 READ_VALC: begin
-                    $display("new_char: %b, ascii_char: %c, is_digit: %b", new_char, ascii_char, is_digit);
+                    // $display("new_char: %b, ascii_char: %c, is_digit: %b", new_char, ascii_char, is_digit);
                     if(new_char) begin
                         if(is_digit) begin
                             num_buffer     <= (num_buffer * 10) + (ascii_char - "0");
@@ -282,7 +284,7 @@ module if_else_parser (
 
                 // Evaluate the condition using the selected comparator.
                 EVALUATE: begin
-                    $display("x: %d, valC: %d, comparator: %b", x, valC, comparator);
+                    // $display("x: %d, valC: %d, comparator: %b", x, valC, comparator);
                     case(comparator)
                         EQ:  if(x == valC) p <= const1; else p <= const2;
                         NE:  if(x != valC) p <= const1; else p <= const2;
@@ -293,12 +295,6 @@ module if_else_parser (
                         default: p <= 0;
                     endcase
                     parsing_done <= 1;
-                    state <= OUTPUT;
-                end
-
-                OUTPUT: begin
-                    parsing_done <= 1;
-                    // Final state; outputs are held.
                 end
 
                 default: state <= IDLE;
