@@ -17,7 +17,7 @@ module if_else_parser (
               READ_COND_OPERATOR2       = 4,  // Read second char of comparator (if any)
               READ_VALC                 = 5,
               READ_ASSIGNMENT           = 6,  // expecting letter "p"
-              READ_ASSIGNMENT_OPERATOR  = 7,  // expecting "<=" for if branch
+              READ_ASSIGNMENT_OPERATOR  = 7,  // expecting "<=" or "==" for if branch
               READ_CONST1               = 8,
               READ_ELSE                 = 9,  // expecting "else" keyword (first letter "e")
               READ_ASSIGNMENT2          = 10, // expecting letter "p" for else branch
@@ -31,7 +31,6 @@ module if_else_parser (
     reg [31:0] valC, const1, const2;
     reg [31:0] num_buffer;
     reg        parsing_number;
-    reg        num_done; // flag: indicates that we've latched the current number
 
     // Operator detection for condition:
     // Supported comparators:
@@ -70,7 +69,6 @@ module if_else_parser (
             const2          <= 0;
             num_buffer      <= 0;
             parsing_number  <= 0;
-            num_done        <= 0;
             parsing_done    <= 0;
             error_flag      <= 0;
             comparator      <= 0;
@@ -128,10 +126,6 @@ module if_else_parser (
                                     parsing_number <= 1;
                                     state <= READ_VALC;
                                 end
-                                else begin
-                                    comparator <= LT; // single-character "<"
-                                    state <= READ_VALC;
-                                end
                             end
                             ">": begin
                                 if(ascii_char=="=") begin
@@ -143,10 +137,6 @@ module if_else_parser (
                                     // Start processing the digit immediately
                                     num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                                     parsing_number <= 1; 
-                                    state <= READ_VALC;
-                                end
-                                else begin
-                                    comparator <= GT; // single-character ">"
                                     state <= READ_VALC;
                                 end
                             end
@@ -183,11 +173,10 @@ module if_else_parser (
                             num_buffer     <= (num_buffer * 10) + (ascii_char - "0");
                             parsing_number <= 1;
                         end
-                        else if(parsing_number && !num_done) begin
+                        else if(parsing_number) begin
                             valC       <= num_buffer;
                             num_buffer <= 0;
                             parsing_number <= 0;
-                            num_done   <= 1;
                             state      <= READ_ASSIGNMENT;
                         end
                     end
@@ -212,7 +201,6 @@ module if_else_parser (
                             // Got "<="; prepare to read constant digits.
                             num_buffer     <= 0;
                             parsing_number <= 0;
-                            num_done       <= 0;
                             state          <= READ_CONST1;
                         end
                     end
@@ -225,11 +213,10 @@ module if_else_parser (
                             num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                             parsing_number <= 1;
                         end
-                        else if(parsing_number && !num_done) begin
+                        else if(parsing_number) begin
                             const1 <= num_buffer;
                             num_buffer <= 0;
                             parsing_number <= 0;
-                            num_done <= 1;
                             state <= READ_ELSE;
                         end
                     end
@@ -259,7 +246,6 @@ module if_else_parser (
                         else if(ascii_char=="=") begin
                             num_buffer     <= 0;
                             parsing_number <= 0;
-                            num_done       <= 0;
                             state          <= READ_CONST2;
                         end
                     end
@@ -272,11 +258,10 @@ module if_else_parser (
                             num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                             parsing_number <= 1;
                         end
-                        else if(parsing_number && !num_done) begin
+                        else if(parsing_number) begin
                             const2 <= num_buffer;
                             num_buffer <= 0;
                             parsing_number <= 0;
-                            num_done <= 1;
                             state <= EVALUATE;
                         end
                     end
