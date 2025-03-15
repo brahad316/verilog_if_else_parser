@@ -24,7 +24,7 @@ int main() {
     }
 
     char comparison_op[3] = "";
-    long long condition_num = -1;
+    int condition_num = -1;
     int true_branch_num = -1;
     int false_branch_num = -1;
 
@@ -92,7 +92,7 @@ int main() {
     printf("x = %d;\n", x);
 
     printf("comparison_op = %s\n", comparison_op);
-    printf("condition_num = %lld\n", condition_num);
+    printf("condition_num = %d\n", condition_num);
     printf("true_branch_num = %d\n", true_branch_num);
     printf("false_branch_num = %d\n", false_branch_num);
 
