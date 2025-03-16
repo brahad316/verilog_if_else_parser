@@ -175,6 +175,10 @@ module if_else_parser (
                 // Accumulate condition value (valC)
                 READ_VALC: begin
                     // $display("new_char: %b, ascii_char: %c, is_digit: %b", new_char, ascii_char, is_digit);
+                    // check if there's a negative sign ("-") before the digit
+                    if(ascii_char == "-") begin
+                        is_valC_negative <= 1;
+                    end
                     if(new_char) begin
                         if(is_digit) begin
                             num_buffer     <= (num_buffer * 10) + (ascii_char - "0");
@@ -296,7 +300,7 @@ module if_else_parser (
 
                 // Evaluate the condition using the selected comparator.
                 EVALUATE: begin
-                    $display("x: %d, valC: %d, comparator: %b, const1: %d, const2: %d", x, valC, comparator, const1, const2);
+                    // $display("x: %d, valC: %d, comparator: %b, const1: %d, const2: %d", x, valC, comparator, const1, const2);
                     case(comparator)
                         EQ:  if(x == valC) p <= const1; else p <= const2;
                         NE:  if(x != valC) p <= const1; else p <= const2;
