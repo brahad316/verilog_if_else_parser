@@ -28,16 +28,15 @@ module if_else_parser (
     reg [3:0] state;
 
     // Data registers
-    reg [31:0] valC, const1, const2;
-    reg [31:0] num_buffer;
+    integer    valC, const1, const2;
+    integer    num_buffer;
     reg        parsing_number;
 
     // Operator detection for condition:
     // Supported comparators:
-    //  "==" => EQ, "!=" => NE, "<=" => LE, ">=" => GE,
-    //  "<"  => LT, ">"  => GT.
+    //  "==" => EQ, "!=" => NE, "<=" => LE, ">=" => GE, "<"  => LT, ">"  => GT.
     reg [2:0] comparator;
-    parameter EQ = 3'b000, NE = 3'b001, LT = 3'b010, GT = 3'b011, LE = 3'b100, GE = 3'b101;
+    parameter EQ = 3'b000, NE = 3'b001, LE = 3'b100, GE = 3'b101, LT = 3'b010, GT = 3'b011;
 
     // Temporary register to store first operator character
     reg [6:0] op_first;
@@ -47,6 +46,9 @@ module if_else_parser (
 
     // ASCII digit check ("0" = 7'h30, "9" = 7'h39)
     wire is_digit = (ascii_char >= "0" && ascii_char <= "9");
+
+    // Flag for negative valC
+    reg is_valC_negative;
 
     // Edge-detect char_valid: process each character only once.
     // not needed anymore - doing continuous assignment now.
@@ -63,22 +65,23 @@ module if_else_parser (
     // FSM
     always @(posedge clk or posedge rst) begin
         if(rst) begin
-            state           <= IDLE;
-            valC            <= 0;
-            const1          <= 0;
-            const2          <= 0;
-            num_buffer      <= 0;
-            parsing_number  <= 0;
-            parsing_done    <= 0;
-            error_flag      <= 0;
-            comparator      <= 0;
-            p_detected_if   <= 0;
-            p_detected_else <= 0;
-            op_first        <= 0;
+            state            <= IDLE;
+            valC             <= 0;
+            is_valC_negative <= 0;
+            const1           <= 0;
+            const2           <= 0;
+            num_buffer       <= 0;
+            parsing_number   <= 0;
+            parsing_done     <= 0;
+            error_flag       <= 0;
+            comparator       <= 0;
+            p_detected_if    <= 0;
+            p_detected_else  <= 0;
+            op_first         <= 0;
         end
         else begin
-            $display("State: %d, char: %c (%h), new_char: %b, x: %d, valC: %d, p: %d, done: %b, error: %b", 
-                      state, ascii_char, ascii_char, new_char, x, valC, p, parsing_done, error_flag);
+            $display("State: %d, char: %c (%h), new_char: %b, x: %d, is_valC_negative: %b,valC: %d, p: %d, done: %b, error: %b", 
+                      state, ascii_char, ascii_char, new_char, x, is_valC_negative,valC, p, parsing_done, error_flag);
             case(state)
                 IDLE: begin
                     if(new_char && ascii_char=="i")
@@ -113,6 +116,10 @@ module if_else_parser (
                 // Read the second character of the condition operator, if applicable.
                 READ_COND_OPERATOR2: begin
                     if(new_char) begin
+                        // check if there's a negative sign ("-") before the digit
+                        if(ascii_char == "-") begin
+                            is_valC_negative <= 1;
+                        end
                         case(op_first)
                             "<": begin
                                 if(ascii_char=="=") begin
@@ -174,7 +181,11 @@ module if_else_parser (
                             parsing_number <= 1;
                         end
                         else if(parsing_number) begin
-                            valC       <= num_buffer;
+                            if(is_valC_negative)
+                                valC <= -num_buffer;
+                            else
+                                valC <= num_buffer;
+
                             num_buffer <= 0;
                             parsing_number <= 0;
                             state      <= READ_ASSIGNMENT;
@@ -269,7 +280,7 @@ module if_else_parser (
 
                 // Evaluate the condition using the selected comparator.
                 EVALUATE: begin
-                    // $display("x: %d, valC: %d, comparator: %b", x, valC, comparator);
+                    $display("x: %d, valC: %d, comparator: %b, const1: %d, const2: %d", x, valC, comparator, const1, const2);
                     case(comparator)
                         EQ:  if(x == valC) p <= const1; else p <= const2;
                         NE:  if(x != valC) p <= const1; else p <= const2;
