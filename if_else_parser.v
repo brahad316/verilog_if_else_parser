@@ -1,13 +1,13 @@
 module if_else_parser (
     input  wire        clk,                   
     input  wire        rst,                   
-    input  wire [31:0] x,              
+    input  wire signed [31:0] x,              
     input  wire [6:0]  ascii_char,      
     input  wire        char_valid,            
-    output reg  [31:0] p,              
+    output reg signed [31:0] p,              
     output reg         parsing_done,          
     output reg         error_flag             
-);
+);  
 
     // State encoding
     parameter IDLE                      = 0,
@@ -47,8 +47,8 @@ module if_else_parser (
     // ASCII digit check ("0" = 7'h30, "9" = 7'h39)
     wire is_digit = (ascii_char >= "0" && ascii_char <= "9");
 
-    // Flag for negative valC
-    reg is_valC_negative;
+    // Flags for negative integers valC, const1, const2
+    reg is_valC_negative, is_const1_negative, is_const2_negative;
 
     // Edge-detect char_valid: process each character only once.
     // not needed anymore - doing continuous assignment now.
@@ -220,12 +220,20 @@ module if_else_parser (
                 // Accumulate constant for if branch (const1)
                 READ_CONST1: begin
                     if(new_char) begin
+                        // check if there's a negative sign ("-") before the digit
+                        if(ascii_char == "-") begin
+                            is_const1_negative <= 1;
+                        end
                         if(is_digit) begin
                             num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                             parsing_number <= 1;
                         end
                         else if(parsing_number) begin
-                            const1 <= num_buffer;
+                            if(is_const1_negative)
+                                const1 <= -num_buffer;
+                            else
+                                const1 <= num_buffer;
+                                
                             num_buffer <= 0;
                             parsing_number <= 0;
                             state <= READ_ELSE;
@@ -265,12 +273,20 @@ module if_else_parser (
                 // Accumulate constant for else branch (const2)
                 READ_CONST2: begin
                     if(new_char) begin
+                        // check if there's a negative sign ("-") before the digit
+                        if(ascii_char == "-") begin
+                            is_const2_negative <= 1;
+                        end
                         if(is_digit) begin
                             num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                             parsing_number <= 1;
                         end
                         else if(parsing_number) begin
-                            const2 <= num_buffer;
+                            if(is_const2_negative)
+                                const2 <= -num_buffer;
+                            else
+                                const2 <= num_buffer;
+
                             num_buffer <= 0;
                             parsing_number <= 0;
                             state <= EVALUATE;
