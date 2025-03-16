@@ -83,6 +83,7 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     // Process each character from the input file
     for (int i = 0; i < file_size; i++) {
         char current_char = input_buffer[i];
+        char prev_char = i > 0 ? input_buffer[i - 1] : '\0';
         
         // Skip whitespace characters
         if (current_char == ' ' || current_char == '\t' || current_char == '\n' || current_char == '\r') {
@@ -98,7 +99,15 @@ void generate_testbench(const char *input_filename, const char *output_filename,
         }
         
         // Generate send_char statement for this character
-        fprintf(output_file, "        send_char(\"%c\");\n", current_char);
+        // fprintf(output_file, "        send_char(\"%c\");\n", current_char);
+
+        if(prev_char == '-' && isdigit(current_char)) {
+            fprintf(output_file, "        send_char(\"-\");\n");
+            fprintf(output_file, "        send_char(\"%c\");\n", current_char);
+        }
+        else{
+            fprintf(output_file, "        send_char(\"%c\");\n", current_char);
+        }
     }
 
     // Write the closing part of the testbench
