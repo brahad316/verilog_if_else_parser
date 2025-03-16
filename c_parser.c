@@ -22,10 +22,10 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     // Write testbench header
     fprintf(output_file, "module if_else_parser_tb();\n\n");
     fprintf(output_file, "    reg clk, rst;\n");
-    fprintf(output_file, "    reg [31:0] x;\n");
+    fprintf(output_file, "    reg signed [31:0] x;\n");
     fprintf(output_file, "    reg [6:0] ascii_char;\n");
     fprintf(output_file, "    reg char_valid;\n");
-    fprintf(output_file, "    wire [31:0] p;\n");
+    fprintf(output_file, "    wire signed [31:0] p;\n");
     fprintf(output_file, "    wire parsing_done;\n");
     fprintf(output_file, "    wire error_flag;\n\n");
     fprintf(output_file, "    // Instantiate the parser\n");
