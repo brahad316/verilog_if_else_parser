@@ -3,6 +3,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+void remove_whitespace(char *str) {
+    char *dst = str;  // Destination pointer
+    char *src = str;  // Source pointer
+
+    while (*src) {
+        if (!isspace((unsigned char)*src)) {
+            *dst++ = *src;
+        }
+        src++;
+    }
+    *dst = '\0';  // Null-terminate the modified string
+}
+
 void generate_testbench(const char *input_filename, const char *output_filename, int x) {
     // Open input file
     FILE *input_file = fopen(input_filename, "r");
@@ -67,6 +80,9 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     
     fread(input_buffer, 1, file_size, input_file);
     input_buffer[file_size] = '\0';
+
+    // Remove whitespace characters from the input buffer
+    remove_whitespace(input_buffer);
     
     // Write the initial test setup
     fprintf(output_file, "    // Test stimulus: sending the code from input.v\n");
