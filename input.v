@@ -1,4 +1,4 @@
-if(x < -  5) 
+if(x < -5) 
     begin 
     p <= 73  ;
     end
