@@ -51,6 +51,8 @@ by doing the necessary variable assignment. Note that:
 To compile and run this, do:
 
 ```
-> gcc .\c_parser.c -o c_parser && .\c_parser
-> iverilog -o parser_gen if_else_parser.v if_else_parser_tb_gen.v && vvp .\parser_gen
+gcc .\c_parser.c -o c_parser && .\c_parser
+```
+```
+iverilog -o parser_gen if_else_parser.v if_else_parser_tb_gen.v && vvp .\parser_gen
 ```
