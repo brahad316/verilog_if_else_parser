@@ -189,7 +189,7 @@ module if_else_parser_2 (
                 READ_OPEN_PAREN: begin
                     if(new_char) begin
                         if(ascii_char == "(") begin
-                            paran_count <= paran_count + 1;
+                            // paran_count <= paran_count + 1;
                             state <= READ_VAR;
                         end else begin
                             error_flag <= 1;
@@ -346,7 +346,7 @@ module if_else_parser_2 (
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
                                 end
-                                paran_count <= paran_count - 1;
+                                // paran_count <= paran_count - 1;
                                 state <= READ_CLOSE_PAREN;
                             end else begin
                                 error_flag <= 1;
