@@ -332,7 +332,7 @@ module if_else_parser_2 (
                             num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                             parsing_number <= 1;
                         end 
-                        else if(parsing_number || is_valC_negative) begin
+                        else if(parsing_number) begin
                             if(is_valC_negative)
                                 valC <= -num_buffer;
                             else
@@ -342,20 +342,17 @@ module if_else_parser_2 (
                             parsing_number <= 0;
                             
                             if(ascii_char == ")") begin
+                                if(paran_count == 0) begin
+                                error_flag <= 1;
+                                error_code <= SYNTAX_ERROR;
+                                end
+                                paran_count <= paran_count - 1;
                                 state <= READ_CLOSE_PAREN;
                             end else begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
                             end
                         end 
-                        else if(ascii_char == ")") begin
-                            if(paran_count == 0) begin
-                                error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
-                            end
-                            paran_count <= paran_count - 1;
-                            state <= READ_CLOSE_PAREN;
-                        end
                     end
                 end
 
