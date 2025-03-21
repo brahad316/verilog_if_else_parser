@@ -21,7 +21,7 @@ module if_else_parser_2 (
 
     // State encoding
     parameter IDLE                      = 0,
-              READ_IF                   = 1,
+              READ_IF                   = 1,  // Read "if" keyword
               READ_OPEN_PAREN           = 2,
               READ_VAR                  = 3,
               READ_COND_OPERATOR        = 4,  // Read first char of comparator
@@ -100,12 +100,10 @@ module if_else_parser_2 (
     // Debug function
     task display_debug;
         begin
-            $display("State: %d, char: %c (%h), keyword_buffer: %h, keyword_index: %d", 
-                    state, ascii_char, ascii_char, keyword_buffer, keyword_index);
-            $display("cond_var: %c, assignment_var: %c, assignment_var2: %c, var_match: %b", 
-                    cond_var, assignment_var, assignment_var2, var_match);
-            $display("valC: %d, const1: %d, const2: %d, error_code: %d", 
-                    valC, const1, const2, error_code);
+            $display("State: %d, curr_char: %c (%h), keyword_buffer: %h, keyword_index: %d, cond_var: %c, assignment_var: %c, assignment_var2: %c, var_match: %b", 
+                    state, ascii_char, ascii_char, keyword_buffer, keyword_index, cond_var, assignment_var, assignment_var2, var_match);
+            $display("valC: %d, const1: %d, const2: %d, error_code: %d", valC, const1, const2, error_code);
+            $display("---------------------------------------------------------------------------------------------------------------------------------------------");
         end
     endtask
 
@@ -118,7 +116,8 @@ module if_else_parser_2 (
             if (ascii_char == expected_char) begin
                 keyword_index <= keyword_index + 1;
                 state <= next_state;
-            end else begin
+            end 
+            else begin
                 error_flag <= 1;
                 error_code <= INVALID_KEYWORD;
                 state <= error_state;
@@ -200,8 +199,9 @@ module if_else_parser_2 (
                         if(is_letter) begin
                             cond_var <= ascii_char;
                             state <= READ_COND_OPERATOR;
-                            $display("Condition variable: %c", ascii_char);
-                        end else begin
+                            $display("Condition variable received: %c", ascii_char);
+                        end 
+                        else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
                         end
@@ -228,7 +228,7 @@ module if_else_parser_2 (
                         // check if there's a negative sign ("-") before the digit
                         if(ascii_char == "-") begin
                             is_valC_negative <= 1;
-                            state <= READ_VALC; // ???
+                            // state <= READ_VALC; // ???
                         end
                         case(op_first)
                             "<": begin
