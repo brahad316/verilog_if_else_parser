@@ -35,13 +35,13 @@ module if_else_parser_2 (
               READ_SEMICOLON1           = 12, // Expect semicolon after const1
               READ_END1                 = 13, // Read "end" keyword for if branch
               READ_ELSE                 = 14, // Expect "else" keyword
-              READ_BEGIN2               = 15, // Read "begin" for else branch
-              READ_ASSIGNMENT_VAR2      = 16, // Read variable for else branch
-              READ_ASSIGNMENT_OPERATOR2 = 17, // Read assignment operator for else branch
-              READ_CONST2               = 18, // Read constant for else branch
-              READ_SEMICOLON2           = 19, // Expect semicolon after const2
-              READ_END2                 = 20, // Read "end" keyword for else branch
-              EVALUATE                  = 21;
+              READ_BEGIN2               = 16, // Read "begin" for else branch
+              READ_ASSIGNMENT_VAR2      = 18, // Read variable for else branch
+              READ_ASSIGNMENT_OPERATOR2 = 19, // Read assignment operator for else branch
+              READ_CONST2               = 20, // Read constant for else branch
+              READ_SEMICOLON2           = 21, // Expect semicolon after const2
+              READ_END2                 = 22, // Read "end" keyword for else branch
+              EVALUATE                  = 23;
 
     reg [4:0] state;
 
