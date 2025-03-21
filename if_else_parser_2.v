@@ -4,7 +4,8 @@ module if_else_parser_2 (
     input  wire signed [31:0] x,              
     input  wire [6:0]  ascii_char,      
     input  wire        char_valid,            
-    output reg signed [31:0] p,              
+    output reg signed  [31:0] p,
+    output reg         [6:0] name_p,              
     output reg         parsing_done,          
     output reg         error_flag,
     output reg [3:0]   error_code             
@@ -60,6 +61,8 @@ module if_else_parser_2 (
     integer    valC, const1, const2;
     integer    num_buffer;
     reg        parsing_number;
+
+    integer paran_count = 0;
 
     // Assignment type flags
     reg        blocking_assignment1;  // = operator used in if branch
@@ -186,6 +189,7 @@ module if_else_parser_2 (
                 READ_OPEN_PAREN: begin
                     if(new_char) begin
                         if(ascii_char == "(") begin
+                            paran_count <= paran_count + 1;
                             state <= READ_VAR;
                         end else begin
                             error_flag <= 1;
@@ -201,6 +205,9 @@ module if_else_parser_2 (
                             state <= READ_COND_OPERATOR;
                             $display("Condition variable received: %c", ascii_char);
                         end 
+                        else if(ascii_char == "(") begin
+                            paran_count <= paran_count + 1;
+                        end 
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
@@ -214,6 +221,13 @@ module if_else_parser_2 (
                         if(ascii_char == "<" || ascii_char == ">" || ascii_char == "=" || ascii_char == "!") begin
                             op_first <= ascii_char;
                             state <= READ_COND_OPERATOR2;
+                        end
+                        else if(ascii_char == ")") begin
+                            if(paran_count == 0) begin
+                                error_flag <= 1;
+                                error_code <= SYNTAX_ERROR;
+                            end
+                            paran_count <= paran_count - 1;
                         end
                         else begin
                             error_flag <= 1;
@@ -243,6 +257,10 @@ module if_else_parser_2 (
                                     parsing_number <= 1;
                                     state <= READ_VALC;
                                 end 
+                                else if(ascii_char == "(") begin
+                                    paran_count <= paran_count + 1;
+                                    state <= READ_VALC;
+                                end
                                 else begin
                                     error_flag <= 1;
                                     error_code <= SYNTAX_ERROR;
@@ -258,6 +276,10 @@ module if_else_parser_2 (
                                     // Start processing the digit immediately
                                     num_buffer <= (num_buffer * 10) + (ascii_char - "0");
                                     parsing_number <= 1; 
+                                    state <= READ_VALC;
+                                end
+                                else if(ascii_char == "(") begin
+                                    paran_count <= paran_count + 1;
                                     state <= READ_VALC;
                                 end
                                 else begin
@@ -300,6 +322,9 @@ module if_else_parser_2 (
                     // $display("new_char: %b, ascii_char: %c, is_digit: %b", new_char, ascii_char, is_digit);
                     // check if there's a negative sign ("-") before the digit
                     if(new_char) begin
+                        if(ascii_char == "(" && !parsing_number) begin
+                            paran_count <= paran_count + 1;
+                        end   
                         if(ascii_char == "-" && !parsing_number) begin
                             is_valC_negative <= 1;
                         end 
@@ -324,6 +349,11 @@ module if_else_parser_2 (
                             end
                         end 
                         else if(ascii_char == ")") begin
+                            if(paran_count == 0) begin
+                                error_flag <= 1;
+                                error_code <= SYNTAX_ERROR;
+                            end
+                            paran_count <= paran_count - 1;
                             state <= READ_CLOSE_PAREN;
                         end
                     end
@@ -334,8 +364,16 @@ module if_else_parser_2 (
                         if(ascii_char == "b") begin
                             keyword_index <= 1;
                             keyword_buffer <= "b";
+                            if(paran_count != 0) begin
+                                error_flag <= 1;
+                                error_code <= SYNTAX_ERROR;
+                            end
                             state <= READ_BEGIN;
-                        end else begin
+                        end
+                        else if(ascii_char == ")") begin
+                            paran_count <= paran_count - 1;
+                        end 
+                        else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
                         end
@@ -725,8 +763,14 @@ module if_else_parser_2 (
 
                 // Evaluate the condition using the selected comparator.
                 EVALUATE: begin
-                    $display("EVALUATING: x=%d, valC=%d, comparator=%b", x, valC, comparator);
-                    $display("const1=%d, const2=%d", const1, const2);
+                    if(parsing_done) begin
+                        state <= IDLE;
+                    end
+                    
+                    if(!parsing_done) begin
+                        $display("EVALUATING: x=%d, valC=%d, comparator=%b, const1=%d, const2=%d",
+                        x, valC, comparator, const1, const2);
+                    end 
 
                     if(!error_flag) begin
                         case(comparator)
