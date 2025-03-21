@@ -5,7 +5,7 @@ module if_else_parser_2 (
     input  wire [6:0]  ascii_char,      
     input  wire        char_valid,            
     output reg signed  [31:0] p,
-    output reg         [6:0] name_p,              
+    output reg         [6:0] assignment_var,              
     output reg         parsing_done,          
     output reg         error_flag,
     output reg [3:0]   error_code             
@@ -53,7 +53,7 @@ module if_else_parser_2 (
 
     // Variable name tracking
     reg [6:0]  cond_var;      // Condition variable (was 'x')
-    reg [6:0]  assignment_var; // Assignment variable (was 'p')
+    // output reg [6:0]  assignment_var; // Assignment variable (was 'p')
     reg [6:0]  assignment_var2; // Assignment variable in else branch
     reg        var_match;      // Flag to check if variables match
 
