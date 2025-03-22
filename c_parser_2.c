@@ -3,17 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Function to remove all whitespace characters
-void remove_whitespace(char *str) {
-    char *dst = str;
-    for (char *src = str; *src; src++) {
-        if (!isspace(*src)) {
-            *dst++ = *src;
-        }
-    }
-    *dst = '\0';  // Null-terminate the compacted string
-}
-
 void generate_testbench(const char *input_filename, const char *output_filename, int x_value) {
     // Open input file
     FILE *input_file = fopen(input_filename, "r");
@@ -33,10 +22,12 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     // Write testbench header
     fprintf(output_file, "module if_else_parser_tb();\n\n");
     fprintf(output_file, "    reg clk, rst;\n");
-    fprintf(output_file, "    reg signed [31:0] x;\n");  // We keep this as x for test input
+    fprintf(output_file, "    reg signed [31:0] x;\n");
     fprintf(output_file, "    reg [6:0] ascii_char;\n");
     fprintf(output_file, "    reg char_valid;\n");
-    fprintf(output_file, "    wire signed [31:0] p;\n"); // Output is still p in the interface
+    fprintf(output_file, "    wire signed [31:0] p;\n");
+    fprintf(output_file, "    wire [16*7-1:0] assignment_var;\n");
+    fprintf(output_file, "    wire [3:0] assignment_var_length;\n");
     fprintf(output_file, "    wire parsing_done;\n");
     fprintf(output_file, "    wire error_flag;\n");
     fprintf(output_file, "    wire [3:0] error_code;\n\n");
@@ -55,10 +46,12 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "    if_else_parser_2 uut (\n");
     fprintf(output_file, "        .clk(clk),\n");
     fprintf(output_file, "        .rst(rst),\n");
-    fprintf(output_file, "        .x(x),\n");  // The value is passed to the module's 'x' input
+    fprintf(output_file, "        .x(x),\n");
     fprintf(output_file, "        .ascii_char(ascii_char),\n");
     fprintf(output_file, "        .char_valid(char_valid),\n");
-    fprintf(output_file, "        .p(p),\n");  // Result is still captured in 'p' output
+    fprintf(output_file, "        .p(p),\n");
+    fprintf(output_file, "        .assignment_var(assignment_var),\n");
+    fprintf(output_file, "        .assignment_var_length(assignment_var_length),\n");
     fprintf(output_file, "        .parsing_done(parsing_done),\n");
     fprintf(output_file, "        .error_flag(error_flag),\n");
     fprintf(output_file, "        .error_code(error_code)\n");
@@ -76,6 +69,22 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "    end\n");
     fprintf(output_file, "    endtask\n\n");
 
+    // Add the extract_var_name function - fixed to properly handle character order
+    fprintf(output_file, "    // Helper function to extract variable name from packed format\n");
+    fprintf(output_file, "    function [8*16:1] extract_var_name;\n");
+    fprintf(output_file, "        input [16*7-1:0] packed_var;\n");
+    fprintf(output_file, "        input [3:0] length;\n");
+    fprintf(output_file, "        reg [6:0] char;\n");
+    fprintf(output_file, "        integer i;\n");
+    fprintf(output_file, "    begin\n");
+    fprintf(output_file, "        extract_var_name = 0;\n");
+    fprintf(output_file, "        for (i = 0; i < length; i = i + 1) begin\n");
+    fprintf(output_file, "            char = (packed_var >> (i*7)) & 7'h7F;\n");
+    fprintf(output_file, "            extract_var_name[8*(length-i) -: 8] = char;\n");
+    fprintf(output_file, "        end\n");
+    fprintf(output_file, "    end\n");
+    fprintf(output_file, "    endfunction\n\n");
+
     // Read input file to a buffer
     fseek(input_file, 0, SEEK_END);
     long file_size = ftell(input_file);
@@ -91,9 +100,6 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     
     fread(input_buffer, 1, file_size, input_file);
     input_buffer[file_size] = '\0';
-
-    // Remove whitespace characters from the input buffer
-    remove_whitespace(input_buffer);
     
     // Write the initial test setup
     fprintf(output_file, "    // Test stimulus: sending the code from input.v\n");
@@ -101,7 +107,7 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "        clk = 0;\n");
     fprintf(output_file, "        rst = 1;\n");
 
-    // Set the input value - this will be matched to the variable name inside the parser
+    // Set the input value
     fprintf(output_file, "        // Set the input value that will be used when evaluating the condition\n");
     fprintf(output_file, "        x = %d;\n", x_value);
     
@@ -112,45 +118,94 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "        // Send each character of the if-else code to the parser\n");
     
     // Process each character from the input file
-    for (int i = 0; i < file_size; i++) {
-        char current_char = input_buffer[i];
+    int i = 0;
+    int found_if = 0;
+    int found_complete_if_else = 0;
+    int block_depth = 0;
+    
+    // Process every character in the file
+    while (i < file_size) {
+        char ch = input_buffer[i++];
         
-        // Skip whitespace characters
-        if (current_char == ' ' || current_char == '\t' || current_char == '\n' || current_char == '\r') {
-            continue;
-        }
-
-        // Check if the character should be skipped
-        if (!isalnum(current_char) && 
-        current_char != '<' && current_char != '>' && 
-        current_char != '=' && current_char != ';' && 
-        current_char != '(' && current_char != ')' &&
-        current_char != '!' && current_char != '-') {
-            continue;
+        // *** FIX: Start emitting characters as soon as we start looking for if-else structure ***
+        // This ensures we don't miss the 'i' in 'if'
+        
+        // Detect beginning of if statement - we look ahead but don't skip emitting
+        if (!found_if && i < file_size && ch == 'i' && input_buffer[i] == 'f') {
+            found_if = 1;
         }
         
-        // Generate send_char statement for this character
-        fprintf(output_file, "        send_char(\"%c\");\n", current_char);
+        if (found_if) {
+            // Track block depth with braces
+            if (ch == '{' || (i >= 5 && strncmp(&input_buffer[i-5], "begin", 5) == 0)) {
+                block_depth++;
+            }
+            else if (ch == '}' || (i >= 3 && strncmp(&input_buffer[i-3], "end", 3) == 0)) {
+                block_depth--;
+                if (block_depth == 0 && found_complete_if_else) {
+                    // End of if-else structure reached - but keep emitting until we're done
+                    // i += 3; // Skip "end" so we include it
+                }
+            }
+            
+            // Detect else keyword
+            if (i >= 4 && strncmp(&input_buffer[i-4], "else", 4) == 0) {
+                found_complete_if_else = 1;
+            }
+            
+            // Output character with proper escaping
+            if (ch == '\n') {
+                fprintf(output_file, "        send_char(\"\\n\");\n");
+            } 
+            else if (ch == '\t') {
+                fprintf(output_file, "        send_char(\"\\t\");\n");
+            }
+            else if (ch == '\r') {
+                // Skip carriage returns
+                continue;
+            }
+            else if (ch == ' ') {
+                fprintf(output_file, "        send_char(\" \");\n");
+            }
+            else if (isprint(ch)) {
+                fprintf(output_file, "        send_char(\"%c\");\n", ch);
+            }
+            else {
+                fprintf(output_file, "        send_char(%d);\n", (int)ch);
+            }
+            
+            // If we've completed the if-else structure and also processed the "end", stop
+            if (found_complete_if_else && block_depth == 0 && 
+                i >= 3 && strncmp(&input_buffer[i-3], "end", 3) == 0) {
+                break;
+            }
+        }
     }
 
-    // Write the closing part of the testbench
-    fprintf(output_file, "\n        // Wait some cycles for the parser to finish processing\n");
-    fprintf(output_file, "        #100;\n");
-    fprintf(output_file, "        if (parsing_done && !error_flag)\n");
-    fprintf(output_file, "            $display(\"Test passed. Result = %%d\", p);\n");
-    fprintf(output_file, "        else if (error_flag) begin\n");
-    fprintf(output_file, "            case(error_code)\n");
-    fprintf(output_file, "                INVALID_KEYWORD:   $display(\"Error: Invalid keyword (%%d)\", error_code);\n");
-    fprintf(output_file, "                VAR_MISMATCH:      $display(\"Error: Variable mismatch between if/else branches (%%d)\", error_code);\n");
-    fprintf(output_file, "                INVALID_CHAR:      $display(\"Error: Invalid character (%%d)\", error_code);\n");
-    fprintf(output_file, "                MISSING_SEMICOLON: $display(\"Error: Missing semicolon (%%d)\", error_code);\n");
-    fprintf(output_file, "                MISSING_OPERATOR:  $display(\"Error: Missing operator (%%d)\", error_code);\n");
-    fprintf(output_file, "                SYNTAX_ERROR:      $display(\"Error: Syntax error (%%d)\", error_code);\n");
-    fprintf(output_file, "                default:           $display(\"Error: Unknown error code (%%d)\", error_code);\n");
-    fprintf(output_file, "            endcase\n");
+    // Updated closing part with support for variable display
+    fprintf(output_file, "\n        // Wait for parsing to complete\n");
+    fprintf(output_file, "        wait(parsing_done || error_flag);\n");
+    fprintf(output_file, "        #20;\n\n");
+    fprintf(output_file, "        // Display results\n");
+    fprintf(output_file, "        if (parsing_done && !error_flag) begin\n");
+    fprintf(output_file, "            $display(\"Test passed! Value %%d assigned to the variable: %%s. (var length: %%d)\", \n");
+    fprintf(output_file, "                    p, extract_var_name(assignment_var, assignment_var_length),\n");
+    fprintf(output_file, "                    assignment_var_length);\n");
     fprintf(output_file, "        end\n");
-    fprintf(output_file, "        else if(!error_flag && !parsing_done)\n");
-    fprintf(output_file, "            $display(\"Parsing failed, not completed or timed out.\");\n");
+    fprintf(output_file, "        else if (error_flag) begin\n");
+    fprintf(output_file, "            $display(\"Error: %%s (%%0d)\", \n");
+    fprintf(output_file, "                    error_code == 0 ? \"No Error\" :\n");
+    fprintf(output_file, "                    error_code == 1 ? \"Invalid Keyword\" :\n");
+    fprintf(output_file, "                    error_code == 2 ? \"Variable Mismatch\" :\n");
+    fprintf(output_file, "                    error_code == 3 ? \"Invalid Character\" :\n");
+    fprintf(output_file, "                    error_code == 4 ? \"Missing Semicolon\" :\n");
+    fprintf(output_file, "                    error_code == 5 ? \"Missing Operator\" :\n");
+    fprintf(output_file, "                    error_code == 6 ? \"Syntax Error\" : \"Unknown Error\",\n");
+    fprintf(output_file, "                    error_code);\n");
+    fprintf(output_file, "        end\n");
+    fprintf(output_file, "        else begin\n");
+    fprintf(output_file, "            $display(\"Parsing not finished.\");\n");
+    fprintf(output_file, "        end\n");
     fprintf(output_file, "        $finish;\n");
     fprintf(output_file, "    end\n\n");
     fprintf(output_file, "endmodule\n");
@@ -161,9 +216,9 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fclose(output_file);
     
     printf("Testbench generated successfully. The parser will:\n");
-    printf("1. Read variable names dynamically from your input code\n");
+    printf("1. Read variable names dynamically from your input code WITH preserved whitespace\n");
     printf("2. Use the value %d for condition evaluation\n", x_value);
-    printf("3. Output the result of the if-else statement\n");
+    printf("3. Output the result of the if-else statement and variable name\n");
 }
 
 int main() {
