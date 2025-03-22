@@ -5,7 +5,8 @@ module if_else_parser_2 (
     input  wire [6:0]  ascii_char,      
     input  wire        char_valid,            
     output reg signed  [31:0] p,
-    output reg         [6:0] assignment_var,              
+    output reg         [16*7-1:0] assignment_var,  // array to support multi-char variables
+    output reg         [3:0] assignment_var_length, // Length of variable name  
     output reg         parsing_done,          
     output reg         error_flag,
     output reg [3:0]   error_code             
@@ -51,11 +52,19 @@ module if_else_parser_2 (
     reg [2:0]  keyword_index;
     reg        keyword_complete;
 
-    // Variable name tracking
-    reg [6:0]  cond_var;      // Condition variable (was 'x')
-    // output reg [6:0]  assignment_var; // Assignment variable (was 'p')
-    reg [6:0]  assignment_var2; // Assignment variable in else branch
-    reg        var_match;      // Flag to check if variables match
+    // Variable name tracking - multi-character support
+    reg [6:0]  cond_var[0:15];      // Condition variable (was 'x'), now supports up to 16 chars
+    reg [3:0]  cond_var_length;     // Length of condition variable name
+    reg [3:0]  cond_var_idx;        // Current index while reading variable
+    
+    // Internal storage for assignment variables (preserved from original)
+    reg [6:0]  assignment_var_array[0:15]; // For internal processing
+    reg [16*7-1:0] assignment_var2; // Assignment variable in else branch as packed array
+    reg [3:0]  assignment_var2_length;
+    reg [3:0]  assignment_var2_idx;
+    reg [6:0]  assignment_var2_array[0:15]; // For internal processing
+    reg        var_match;           // Flag to check if variables match
+    reg        reading_var;         // Flag to indicate we're accumulating a variable name
 
     // Data registers
     integer    valC, const1, const2;
@@ -77,57 +86,113 @@ module if_else_parser_2 (
     // Temporary register to store first operator character
     reg [6:0] op_first;
 
-    // For verifying that the assignment letter is detected
-    reg p_detected_if, p_detected_else;
-
     // ASCII digit and letter checks
     wire is_digit = (ascii_char >= "0" && ascii_char <= "9");
     wire is_letter = ((ascii_char >= "a" && ascii_char <= "z") || 
                      (ascii_char >= "A" && ascii_char <= "Z"));
+    wire is_underscore = (ascii_char == "_");                     
+    wire is_id_start = is_letter;  // First character must be a letter
+    wire is_id_char = is_letter || is_digit || is_underscore;  // Subsequent chars can be letter, digit, or underscore
     wire is_whitespace = (ascii_char == " " || ascii_char == "\t" || ascii_char == "\n");
 
     // Flags for negative integers valC, const1, const2
     reg is_valC_negative, is_const1_negative, is_const2_negative;
 
-    // Edge-detect char_valid: process each character only once.
-    // not needed anymore - doing continuous assignment now.
-    // wire char_valid_d;
-    // always @(posedge clk or posedge rst)
-    //     if (rst)
-    //         char_valid_d <= 0;
-    //     else
-    //         char_valid_d <= char_valid;
-    // assign char_valid_d = char_valid;
-    // wire new_char = char_valid & ~char_valid_d;
     wire new_char = char_valid;
-
-    // Debug function
-    task display_debug;
+    
+    // Function to check if variable names match
+    function var_names_match;
+        input integer max_idx;
+        integer i;
         begin
-            $display("State: %d, curr_char: %c (%h), keyword_buffer: %h, keyword_index: %d, cond_var: %c, assignment_var: %c, assignment_var2: %c, paran_count: %1d", 
-                    state, ascii_char, ascii_char, keyword_buffer, keyword_index, cond_var, assignment_var, assignment_var2, paran_count);
-            $display("valC: %d, const1: %d, const2: %d, error_code: %d", valC, const1, const2, error_code);
-            $display("---------------------------------------------------------------------------------------------------------------------------------------------\n");
-        end
-    endtask
-
-    // Task for keyword parsing
-    task parse_keyword;
-        input [6:0] expected_char;
-        input [4:0] next_state;
-        input [4:0] error_state;
-        begin
-            if (ascii_char == expected_char) begin
-                keyword_index <= keyword_index + 1;
-                state <= next_state;
-            end 
-            else begin
-                error_flag <= 1;
-                error_code <= INVALID_KEYWORD;
-                state <= error_state;
+            if (assignment_var_length != assignment_var2_length) begin
+                var_names_match = 0;  // Different lengths
+            end else begin
+                var_names_match = 1;  // Assume match, then check each char
+                for (i = 0; i < assignment_var_length; i = i + 1) begin
+                    if (assignment_var_array[i] != assignment_var2_array[i]) begin
+                        var_names_match = 0;  // Mismatch found
+                        $display("Mismatch at position %0d: '%c' vs '%c'", 
+                                i, assignment_var_array[i], assignment_var2_array[i]);
+                    end
+                end
             end
         end
-    endtask
+    endfunction
+
+    // Debug function modified to handle arrays
+    // task display_debug;
+    //     integer i;
+    //     reg [127:0] cond_var_str, assign_var_str, assign_var2_str;  // For display only
+    //     begin
+    //         cond_var_str = "";
+    //         assign_var_str = "";
+    //         assign_var2_str = "";
+            
+    //         for (i = 0; i < cond_var_length; i = i + 1)
+    //             cond_var_str = {cond_var_str, cond_var[i]};
+            
+    //         for (i = 0; i < assignment_var_length; i = i + 1)
+    //             assign_var_str = {assign_var_str, assignment_var[i]};
+                
+    //         for (i = 0; i < assignment_var2_length; i = i + 1)
+    //             assign_var2_str = {assign_var2_str, assignment_var2[i]};
+                
+    //         $display("State: %d, curr_char: %c (%h), keyword_buffer: %h, keyword_index: %d", 
+    //                  state, ascii_char, ascii_char, keyword_buffer, keyword_index);
+    //         $display("cond_var: %s, assignment_var: %s, assignment_var2: %s, paran_count: %1d", 
+    //                  cond_var_str, assign_var_str, assign_var2_str, paran_count);
+    //         $display("valC: %d, const1: %d, const2: %d, error_code: %d", valC, const1, const2, error_code);
+    //         $display("---------------------------------------------------------------------------------------------------------------------------------------------\n");
+    //     end
+    // endtask
+
+    // In the "always" block for debug output:
+    always @(posedge clk) begin
+        $write("State: %2d, curr_char: %c (%h), keyword_buffer: %h, keyword_index: %0d\n", 
+            state, ascii_char, ascii_char, keyword_buffer, keyword_index);
+        
+        // Print condition variable
+        $write("cond_var: ");
+        for (integer i = 0; i < cond_var_length; i = i + 1)
+            $write("%c", cond_var[i]);
+        for (integer i = cond_var_length; i < 16; i = i + 1)
+            $write(" ");
+            
+        // Print assignment variables
+        $write(", assignment_var: ");
+        for (integer i = 0; i < assignment_var_length; i = i + 1)
+            $write("%c", assignment_var_array[i]);
+        for (integer i = assignment_var_length; i < 16; i = i + 1)
+            $write(" ");
+            
+        $write(", assignment_var2: ");
+        for (integer i = 0; i < assignment_var2_length; i = i + 1)
+            $write("%c", assignment_var2_array[i]);
+        for (integer i = assignment_var2_length; i < 16; i = i + 1)
+            $write(" ");
+            
+        $write(", paran_count: %0d\n", paran_count);
+        $write("valC: %11d, const1: %11d, const2: %11d, error_code: %2d\n", 
+            valC, const1, const2, error_code);
+        $write("---------------------------------------------------------------------------------------------------------------------------------------------\n\n");
+    end
+
+    always @(state) begin
+        if (state == EVALUATE) begin
+            // Pack assignment_var_array into assignment_var
+            assignment_var = 0;
+            for (integer i = 0; i < assignment_var_length; i = i + 1) begin
+                assignment_var = assignment_var | (assignment_var_array[i] << (i*7));
+            end
+            
+            // Pack assignment_var2_array into assignment_var2
+            assignment_var2 = 0;
+            for (integer i = 0; i < assignment_var2_length; i = i + 1) begin
+                assignment_var2 = assignment_var2 | (assignment_var2_array[i] << (i*7));
+            end
+        end
+    end
 
     // FSM
     always @(posedge clk or posedge rst) begin
@@ -136,10 +201,13 @@ module if_else_parser_2 (
             keyword_buffer      <= 0;
             keyword_index       <= 0;
             keyword_complete    <= 0;
-            cond_var            <= 0;
-            assignment_var      <= 0;
-            assignment_var2     <= 0;
+            cond_var_length     <= 0;
+            cond_var_idx        <= 0;
+            assignment_var_length  <= 0;
+            assignment_var2_length <= 0;
+            assignment_var2_idx <= 0;
             var_match           <= 0;
+            reading_var         <= 0;
             valC                <= 0;
             is_valC_negative    <= 0;
             const1              <= 0;
@@ -156,11 +224,19 @@ module if_else_parser_2 (
             blocking_assignment1 <= 0;
             blocking_assignment2 <= 0;
             p                    <= 0;
+            assignment_var       <= 0;
+            assignment_var2      <= 0;
+            // Clear variable arrays
+            for (integer i = 0; i < 16; i = i + 1) begin
+                cond_var[i] <= 0;
+                assignment_var_array[i] <= 0;
+                assignment_var2_array[i] <= 0;
+            end
         end
         else begin
-            if(new_char) begin
-                display_debug;
-            end
+            // if(new_char) begin
+            //     display_debug;
+            // end
 
             case(state)
                 IDLE: begin
@@ -168,7 +244,7 @@ module if_else_parser_2 (
                         if(is_whitespace) begin
                             state <= IDLE;
                         end
-                        if(ascii_char == "i") begin
+                        else if(ascii_char == "i") begin
                             keyword_index <= 1;
                             state <= READ_IF;
                         end 
@@ -199,6 +275,9 @@ module if_else_parser_2 (
                         else if(ascii_char == "(") begin
                             paran_count <= paran_count + 1;
                             state <= READ_VAR;
+                            cond_var_idx <= 0;
+                            cond_var_length <= 0;
+                            reading_var <= 0;
                         end 
                         else begin
                             error_flag <= 1;
@@ -209,17 +288,51 @@ module if_else_parser_2 (
 
                 READ_VAR: begin
                     if(new_char) begin
-                        if(is_whitespace) begin
+                        if(is_whitespace && !reading_var) begin
                             state <= READ_VAR;
                         end
-                        else if(is_letter) begin
-                            cond_var <= ascii_char;
+                        else if(!reading_var && is_id_start) begin
+                            // First character of identifier - must be a letter
+                            cond_var[0] <= ascii_char; // Start at index 0
+                            cond_var_idx <= 1;
+                            cond_var_length <= 1;
+                            reading_var <= 1;
+                        end
+                        else if(reading_var && is_id_char) begin
+                            // Subsequent characters - can be letter, digit, or underscore
+                            cond_var[cond_var_idx] <= ascii_char;
+                            cond_var_idx <= cond_var_idx + 1;
+                            cond_var_length <= cond_var_length + 1;
+                            if(cond_var_idx == 15) begin  // Max length reached
+                                state <= READ_COND_OPERATOR;
+                                reading_var <= 0;
+                            end
+                        end
+                        else if(reading_var && (is_whitespace || ascii_char == ">" || ascii_char == "<" || 
+                                ascii_char == "=" || ascii_char == "!")) begin
+                            // Variable name complete, ready for operator
                             state <= READ_COND_OPERATOR;
-                            $display("Condition variable received: %c", ascii_char);
+                            reading_var <= 0;
+                            
+                            // Process operator right away if not whitespace
+                            if(!is_whitespace) begin
+                                if(paran_count == 0) begin
+                                    error_flag <= 1;
+                                    error_code <= SYNTAX_ERROR;
+                                end
+                                op_first <= ascii_char;
+                                state <= READ_COND_OPERATOR2;
+                            end
+                        end
+                        else if(ascii_char == ")") begin
+                            // Special case: closing parenthesis without operator - error
+                            error_flag <= 1;
+                            error_code <= MISSING_OPERATOR;
                         end 
                         else if(ascii_char == "(") begin
+                            // Opening nested parenthesis
                             paran_count <= paran_count + 1;
-                        end 
+                        end
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
@@ -335,7 +448,6 @@ module if_else_parser_2 (
                     end
                 end
 
-
                 // Accumulate condition value (valC)
                 READ_VALC: begin
                     if(new_char) begin
@@ -447,13 +559,50 @@ module if_else_parser_2 (
 
                 READ_ASSIGNMENT_VAR: begin
                     if(new_char) begin
-                        if(is_whitespace) begin
+                        if(is_whitespace && !reading_var) begin
                             state <= READ_ASSIGNMENT_VAR;
                         end
-                        else if(is_letter) begin
-                            assignment_var <= ascii_char;
-                            $display("Assignment variable (if branch): %c", ascii_char);
+                        else if(!reading_var && is_id_start) begin
+                            // First character of identifier - must be a letter
+                            assignment_var_array[0] <= ascii_char; // Start at index 0
+                            assignment_var_length <= 1;
+                            cond_var_idx <= 1; // Reuse this counter for tracking position
+                            reading_var <= 1;
+                            // if(cond_var_idx == 15) begin  // Max length reached
+                            //     state <= READ_ASSIGNMENT_OPERATOR;
+                            //     reading_var <= 0;
+                            // end
+                        end
+                        else if(reading_var && is_id_char) begin
+                            // Subsequent characters - can be letter, digit, or underscore
+                            assignment_var_array[cond_var_idx] <= ascii_char;
+                            cond_var_idx <= cond_var_idx + 1;
+                            assignment_var_length <= assignment_var_length + 1;
+                            if(cond_var_idx == 15) begin  // Max length reached
+                                state <= READ_ASSIGNMENT_OPERATOR;
+                                reading_var <= 0;
+                            end
+                        end
+                        else if(reading_var && (is_whitespace || ascii_char == "=" || ascii_char == "<")) begin
+                            // Variable name complete, ready for operator
                             state <= READ_ASSIGNMENT_OPERATOR;
+                            reading_var <= 0;
+                            
+                            // Process operator right away if not whitespace
+                            if(!is_whitespace) begin
+                                if(ascii_char == "<") begin
+                                    blocking_assignment1 <= 0;
+                                    op_first <= "<";
+                                end 
+                                else if(ascii_char == "=") begin
+                                    blocking_assignment1 <= 1;
+                                    op_first <= 0;
+                                    num_buffer <= 0;
+                                    parsing_number <= 0;
+                                    is_const1_negative <= 0;
+                                    state <= READ_CONST1;
+                                end
+                            end
                         end
                         else begin
                             error_flag <= 1;
@@ -462,7 +611,6 @@ module if_else_parser_2 (
                     end
                 end
 
-                // Expect assignment operator ("<=") for if-branch constant.
                 READ_ASSIGNMENT_OPERATOR: begin
                     if(new_char) begin
                         if(is_whitespace) begin
@@ -492,44 +640,6 @@ module if_else_parser_2 (
 
                 // Accumulate constant for if branch (const1)
                 READ_CONST1: begin
-                    // if(new_char) begin
-                    //     if(is_whitespace) begin
-                    //         state <= READ_CONST1;
-                    //     end
-                    //     // check if there's a negative sign ("-") before the digit
-                    //     if(ascii_char == "-") begin
-                    //         is_const1_negative <= 1;
-                    //     end
-                    //     if(is_digit) begin
-                    //         num_buffer <= (num_buffer * 10) + (ascii_char - "0");
-                    //         parsing_number <= 1;
-                    //     end
-                    //     else if(parsing_number) begin
-                    //         if(is_const1_negative)
-                    //             const1 <= -num_buffer;
-                    //         else
-                    //             const1 <= num_buffer;
-                                
-                    //         num_buffer <= 0;
-                    //         parsing_number <= 0;
-
-                    //         if(ascii_char == ";") begin
-                    //             state <= READ_SEMICOLON1;
-                    //         end 
-                    //         else begin
-                    //             error_flag <= 1;
-                    //             error_code <= MISSING_SEMICOLON;
-                    //         end
-                    //     end 
-                    //     // else if(ascii_char == ";") begin
-                    //     //     state <= READ_SEMICOLON1;
-                    //     // end 
-                    //     else begin
-                    //         error_flag <= 1;
-                    //         error_code <= SYNTAX_ERROR;
-                    //     end
-                    // end
-
                     if(new_char) begin
                         if(is_whitespace) begin
                             state <= READ_CONST1;
@@ -729,29 +839,82 @@ module if_else_parser_2 (
 
                 READ_ASSIGNMENT_VAR2: begin
                     if(new_char) begin
-                        if(is_whitespace) begin
+                        if(is_whitespace && !reading_var) begin
                             state <= READ_ASSIGNMENT_VAR2;
                         end
-                        else if(is_letter) begin
-                            assignment_var2 <= ascii_char;
-                            $display("Assignment variable (else branch): %c", ascii_char);
+                        else if(!reading_var && is_id_start) begin
+                            // First character of identifier - must be a letter
+                            assignment_var2_array[0] <= ascii_char; // Start at index 0
+                            assignment_var2_idx <= 1;
+                            assignment_var2_length <= 1;
+                            reading_var <= 1;
+                            // if(assignment_var2_idx == 15) begin  // Max length reached
+                            //     state <= READ_ASSIGNMENT_OPERATOR2;
+                            //     reading_var <= 0;
+                                
+                            //     // Check if variables match
+                            //     var_match <= var_names_match(15);
+                            //     if(!var_names_match(15)) begin
+                            //         error_flag <= 1;
+                            //         error_code <= VAR_MISMATCH;
+                            //         $display("ERROR: Variables mismatch between branches!");
+                            //     end
+                            // end
+                        end
+                        else if(reading_var && is_id_char) begin
+                            // Subsequent characters - can be letter, digit, or underscore
+                            assignment_var2_array[assignment_var2_idx] <= ascii_char;
+                            assignment_var2_idx <= assignment_var2_idx + 1;
+                            assignment_var2_length <= assignment_var2_length + 1;
+                            if(assignment_var2_idx == 15) begin  // Max length reached
+                                state <= READ_ASSIGNMENT_OPERATOR2;
+                                reading_var <= 0;
+                                
+                                // Check if variables match
+                                var_match <= var_names_match(15);
+                                if(!var_names_match(15)) begin
+                                    error_flag <= 1;
+                                    error_code <= VAR_MISMATCH;
+                                    $display("ERROR: Variables mismatch between branches!");
+                                end
+                            end
+                        end
+                        else if(reading_var && (is_whitespace || ascii_char == "=" || ascii_char == "<")) begin
+                            // Variable name complete, ready for operator
+                            state <= READ_ASSIGNMENT_OPERATOR2;
+                            reading_var <= 0;
                             
                             // Check if variables match
-                            if(assignment_var != ascii_char) begin
+                            var_match <= var_names_match(15);
+                            if(!var_names_match(15)) begin
                                 error_flag <= 1;
                                 error_code <= VAR_MISMATCH;
                                 $display("ERROR: Variables mismatch between branches!");
                             end
                             
-                            state <= READ_ASSIGNMENT_OPERATOR2;
-                        end else begin
+                            // Process operator right away if not whitespace
+                            if(!is_whitespace) begin
+                                if(ascii_char == "<") begin
+                                    blocking_assignment2 <= 0;
+                                    op_first <= "<";
+                                end 
+                                else if(ascii_char == "=") begin
+                                    blocking_assignment2 <= 1;
+                                    op_first <= 0;
+                                    num_buffer <= 0;
+                                    parsing_number <= 0;
+                                    is_const2_negative <= 0;
+                                    state <= READ_CONST2;
+                                end
+                            end
+                        end
+                        else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
                         end
                     end
                 end
 
-                // Expect assignment operator ("<=") for else branch.
                 READ_ASSIGNMENT_OPERATOR2: begin
                     if(new_char) begin
                         if(is_whitespace) begin
