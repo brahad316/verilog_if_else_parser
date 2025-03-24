@@ -32,7 +32,6 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "    wire error_flag;\n");
     fprintf(output_file, "    wire [3:0] error_code;\n\n");
     
-    // Add error code parameter definitions
     fprintf(output_file, "    // Error codes\n");
     fprintf(output_file, "    parameter NO_ERROR          = 4'd0,\n");
     fprintf(output_file, "              INVALID_KEYWORD   = 4'd1,\n");
@@ -40,7 +39,8 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "              INVALID_CHAR      = 4'd3,\n");
     fprintf(output_file, "              MISSING_SEMICOLON = 4'd4,\n");
     fprintf(output_file, "              MISSING_OPERATOR  = 4'd5,\n");
-    fprintf(output_file, "              SYNTAX_ERROR      = 4'd6;\n\n");
+    fprintf(output_file, "              SYNTAX_ERROR      = 4'd6,\n");
+    fprintf(output_file, "              PAREN_MISMATCH    = 4'd7;\n\n");
     
     fprintf(output_file, "    // Instantiate the parser\n");
     fprintf(output_file, "    if_else_parser_2 uut (\n");
@@ -69,7 +69,7 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "    end\n");
     fprintf(output_file, "    endtask\n\n");
 
-    // Add the extract_var_name function
+    // write the extract_var_name function
     fprintf(output_file, "    // Helper function to extract variable name from packed format\n");
     fprintf(output_file, "    function [8*16:1] extract_var_name;\n");
     fprintf(output_file, "        input [16*7-1:0] packed_var;\n");
@@ -107,7 +107,6 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "        clk = 0;\n");
     fprintf(output_file, "        rst = 1;\n");
 
-    // Set the input value
     fprintf(output_file, "        // Set the input value that will be used when evaluating the condition\n");
     fprintf(output_file, "        x = %d;\n", x_value);
     
@@ -122,15 +121,11 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     int found_if = 0;
     int found_complete_if_else = 0;
     int block_depth = 0;
-    
-    // Process every character in the file
+
     while (i < file_size) {
         char ch = input_buffer[i++];
         
-        // *** FIX: Start emitting characters as soon as we start looking for if-else structure ***
-        // This ensures we don't miss the 'i' in 'if'
-        
-        // Detect beginning of if statement - we look ahead but don't skip emitting
+        // Detect beginning of "if" statement
         if (!found_if && i < file_size && ch == 'i' && input_buffer[i] == 'f') {
             found_if = 1;
         }
@@ -174,7 +169,7 @@ void generate_testbench(const char *input_filename, const char *output_filename,
                 fprintf(output_file, "        send_char(%d);\n", (int)ch);
             }
             
-            // If we've completed the if-else structure and also processed the "end", stop
+            // If we've completed the if-else structure and also processed the "end", THEN stop
             if (found_complete_if_else && block_depth == 0 && 
                 i >= 3 && strncmp(&input_buffer[i-3], "end", 3) == 0) {
                 break;
@@ -182,7 +177,6 @@ void generate_testbench(const char *input_filename, const char *output_filename,
         }
     }
 
-    // Updated closing part with support for variable display
     fprintf(output_file, "\n        // Wait for parsing to complete\n");
     fprintf(output_file, "        wait(parsing_done || error_flag);\n");
     fprintf(output_file, "        #20;\n\n");
@@ -195,12 +189,13 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "        else if (error_flag) begin\n");
     fprintf(output_file, "            $display(\"Error: %%s (%%0d)\", \n");
     fprintf(output_file, "                    error_code == 0 ? \"No Error\" :\n");
-    fprintf(output_file, "                    error_code == 1 ? \"Invalid Keyword\" :\n");
-    fprintf(output_file, "                    error_code == 2 ? \"Variable Mismatch\" :\n");
-    fprintf(output_file, "                    error_code == 3 ? \"Invalid Character\" :\n");
+    fprintf(output_file, "                    error_code == 1 ? \"Invalid Keyword. One of more of the keywords 'begin', 'end', 'if', 'else' are missing or misspelled.\" :\n");
+    fprintf(output_file, "                    error_code == 2 ? \"Variable Mismatch. The variable names in the true and false branch assignments do not match.\" :\n");
+    fprintf(output_file, "                    error_code == 3 ? \"Invalid Character. You may have entered a character that is not allowed.\" :\n");
     fprintf(output_file, "                    error_code == 4 ? \"Missing Semicolon\" :\n");
     fprintf(output_file, "                    error_code == 5 ? \"Missing Operator\" :\n");
-    fprintf(output_file, "                    error_code == 6 ? \"Syntax Error\" : \"Unknown Error\",\n");
+    fprintf(output_file, "                    error_code == 6 ? \"There seems to be a Syntax Error, incorrect use of parantheses, or use of illegal characters.\" :\n");
+    fprintf(output_file, "                    error_code == 7 ? \"Parenthesis Mismatch. You may have mismatched parentheses, or parantheses at invalid places.\" : \"Unknown Error\",\n");
     fprintf(output_file, "                    error_code);\n");
     fprintf(output_file, "        end\n");
     fprintf(output_file, "        else begin\n");
@@ -210,7 +205,7 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "    end\n\n");
     fprintf(output_file, "endmodule\n");
 
-    // Clean up
+    // Clean up, baby
     free(input_buffer);
     fclose(input_file);
     fclose(output_file);
