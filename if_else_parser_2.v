@@ -73,6 +73,7 @@ module if_else_parser_2 (
     reg        parsing_number;
 
     integer paren_count = 0;
+    integer whitespace_count = 0;
 
     // Assignment type flags
     reg        blocking_assignment1;  // = operator used in if branch
@@ -514,6 +515,7 @@ module if_else_parser_2 (
                             end
                             
                             4: if(ascii_char == "n") begin
+                                whitespace_count <= 0;
                                 keyword_index <= 0;
                                 state <= READ_ASSIGNMENT_VAR;
                             end else begin
@@ -531,7 +533,12 @@ module if_else_parser_2 (
 
                 READ_ASSIGNMENT_VAR: begin
                     if(new_char) begin
-                        if(is_whitespace && !reading_var) begin
+                        if(is_whitespace) whitespace_count <= whitespace_count + 1;
+                        else if(whitespace_count == 0) begin
+                            error_flag <= 1;
+                            error_code <= INVALID_KEYWORD;
+                        end
+                        else if(is_whitespace && !reading_var) begin
                             state <= READ_ASSIGNMENT_VAR;
                         end
                         else if(!reading_var && is_id_start) begin
@@ -588,7 +595,12 @@ module if_else_parser_2 (
                 READ_ASSIGNMENT_OPERATOR: begin
                     if(new_char) begin
                         if(is_whitespace) begin
+                            whitespace_count <= whitespace_count + 1;
                             state <= READ_ASSIGNMENT_OPERATOR;
+                        end
+                        else if(whitespace_count == 0) begin
+                            error_flag <= 1;
+                            error_code <= INVALID_KEYWORD;
                         end
                         else if(ascii_char == ")") paren_count <= paren_count - 1;
                         else if(ascii_char == "<") begin
@@ -698,6 +710,7 @@ module if_else_parser_2 (
                             end
                             
                             2: if(ascii_char == "d") begin
+                                whitespace_count <= 0;
                                 keyword_index <= 0;
                                 state <= READ_ELSE;
                             end 
@@ -714,7 +727,12 @@ module if_else_parser_2 (
                 READ_ELSE: begin
                     if(new_char) begin
                         if(is_whitespace) begin
+                            whitespace_count <= whitespace_count + 1;
                             state <= READ_ELSE;
+                        end
+                        else if(whitespace_count == 0) begin
+                            error_flag <= 1;
+                            error_code <= INVALID_KEYWORD;
                         end
                         else if(ascii_char == "e") begin
                             keyword_index <= 1;
@@ -748,6 +766,7 @@ module if_else_parser_2 (
                             end
 
                             3: if(ascii_char == "e") begin
+                                whitespace_count <= 0;
                                 keyword_index <= 0;
                                 state <= READ_BEGIN2;
                             end else begin
@@ -766,7 +785,12 @@ module if_else_parser_2 (
                 READ_BEGIN2: begin
                     if(new_char) begin
                         if(is_whitespace) begin
+                            whitespace_count <= whitespace_count + 1;
                             state <= READ_BEGIN2;
+                        end
+                        else if(whitespace_count == 0) begin
+                            error_flag <= 1;
+                            error_code <= INVALID_KEYWORD;
                         end
                         else if(ascii_char == "b") begin
                             keyword_index <= 1;
@@ -808,6 +832,7 @@ module if_else_parser_2 (
                             end
 
                             4: if(ascii_char == "n") begin
+                                whitespace_count <= 0;
                                 keyword_index <= 0;
                                 state <= READ_ASSIGNMENT_VAR2;
                             end else begin
@@ -821,7 +846,12 @@ module if_else_parser_2 (
                 READ_ASSIGNMENT_VAR2: begin
                     if(new_char) begin
                         if(is_whitespace && !reading_var) begin
+                            whitespace_count <= whitespace_count + 1;
                             state <= READ_ASSIGNMENT_VAR2;
+                        end
+                        else if(!is_whitespace && whitespace_count == 0) begin
+                            error_flag <= 1;
+                            error_code <= INVALID_KEYWORD;
                         end
                         else if(!reading_var && is_id_start) begin
                             // First character of identifier - must be a letter
