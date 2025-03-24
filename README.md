@@ -1,3 +1,8 @@
+# Parser for verilog if-else block implemented in C and Verilog
+
+## Overview
+This repository contains a Verilog implementation of a state-driven Deterministic Finite Automaton (DFA) designed to parse if-else statements. This approach accepts the input as a stream of ASCII characters, processes and evaluates the condition an then does the appropriate assignment. It also raises appropriate flags for different types of errors.
+
 ## Input file structure
 The input file must be a verilog (`.v`) file of the follwoing format:
 ```
