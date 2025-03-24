@@ -3,7 +3,7 @@ The input file must be a verilog (`.v`) file of the follwoing format:
 ```
 if(x_var == valC) 
     begin 
-        p_var  == const1;
+        p_var <= const1;
     end
 else 
     begin
