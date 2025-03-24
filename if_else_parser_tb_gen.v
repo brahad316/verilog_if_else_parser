@@ -11,6 +11,15 @@ module if_else_parser_tb();
     wire error_flag;
     wire [3:0] error_code;
 
+    // Error codes
+    parameter NO_ERROR          = 4'd0,
+              INVALID_KEYWORD   = 4'd1,
+              VAR_MISMATCH      = 4'd2,
+              INVALID_CHAR      = 4'd3,
+              MISSING_SEMICOLON = 4'd4,
+              MISSING_OPERATOR  = 4'd5,
+              SYNTAX_ERROR      = 4'd6;
+
     // Instantiate the parser
     if_else_parser_2 uut (
         .clk(clk),
@@ -34,8 +43,8 @@ module if_else_parser_tb();
     begin
         ascii_char = ch;
         char_valid = 1;
-        #5; 
-        #5; // full clock cycle completed
+        #5;
+        #5; // full clock cycle complete
         char_valid = 0;
     end
     endtask
@@ -50,121 +59,106 @@ module if_else_parser_tb();
         extract_var_name = 0;
         for (i = 0; i < length; i = i + 1) begin
             char = (packed_var >> (i*7)) & 7'h7F;
-            // Changed this line to put characters in correct order
             extract_var_name[8*(length-i) -: 8] = char;
         end
     end
     endfunction
 
-    // Test stimulus with multi-character variables
+    // Test stimulus: sending the code from input.v
     initial begin
         clk = 0;
         rst = 1;
-        x = 5;  // User input value     
+        // Set the input value that will be used when evaluating the condition
+        x = 43;
         char_valid = 0;
         #20;
         rst = 0;
-        
-        // Send if statement - character by character
-        send_char("i");  
+
+        // Send each character of the if-else code to the parser
+        send_char("i");
         send_char("f");
+        send_char(" ");
         send_char("(");
         send_char("(");
-        
-        // Send variable name "counter"
-        
-        // send_char("(");
-
-        send_char("c");
-        send_char("o");
-        send_char("u");
-        send_char("n");
-        send_char("t");
-        send_char("e");
+        send_char("x");
+        send_char("_");
+        send_char("v");
+        send_char("a");
         send_char("r");
-        
-        // send_char(")");
-
-        // Send condition operator
-        send_char(">");  
-        send_char("=");  
-        
-        // Send condition value
-        send_char("(");
-        send_char("5");
-        send_char(")");
-        
-        // Close parenthesis 
-        send_char(")");
-        send_char(")");
-        
-        // Send begin keyword
-        send_char("b");  
-        send_char("e");  
-        send_char("g");  
-        send_char("i");  
-        send_char("n");
-        
-        // Send variable "result" for assignment
-        send_char("r");
-        send_char("e");
-        send_char("s");
-        send_char("u");
-        send_char("l");
-        send_char("t");
-        
-        // Send assignment operator
-        send_char("<");  
-        send_char("=");
-        
-        // Send value (201)
-        // send_char("(");
-        send_char("-");
-        send_char("2");
-        send_char("0");
         send_char("1");
-        // send_char(")");
-        
-        // Semicolon and end 
-        send_char(";");
-        send_char("e");
-        send_char("n");
-        send_char("d");
-        
-        // Send else keyword
-        send_char("e");
-        send_char("l");
-        send_char("s");
-        send_char("e");
-        
-        // Send begin keyword
+        send_char(")");
+        send_char(" ");
+        send_char("=");
+        send_char("=");
+        send_char(" ");
+        send_char(" ");
+        send_char("(");
+        send_char("4");
+        send_char("2");
+        send_char(")");
+        send_char(")");
+        send_char(" ");
         send_char("b");
         send_char("e");
         send_char("g");
         send_char("i");
         send_char("n");
-        
-        // Send variable "result" again
-        // send_char("(");
+        send_char("\n");
+        send_char(" ");
+        send_char(" ");
+        send_char(" ");
+        send_char(" ");
+        send_char("p");
+        send_char("_");
+        send_char("v");
+        send_char("a");
         send_char("r");
-        send_char("e");
-        send_char("s");
-        send_char("u");
-        send_char("l");
-        send_char("t");
-        // send_char(")");
-        
-        // Send assignment operator
+        send_char("_");
+        send_char("1");
+        send_char(" ");
         send_char("<");
         send_char("=");
-        
-        // Send value (30)
-        send_char("-");
-        send_char("3");
+        send_char(" ");
+        send_char("1");
         send_char("0");
-        
-        // Semicolon and end
+        send_char("0");
         send_char(";");
+        send_char("\n");
+        send_char("e");
+        send_char("n");
+        send_char("d");
+        send_char(" ");
+        send_char("e");
+        send_char("l");
+        send_char("s");
+        send_char("e");
+        send_char(" ");
+        send_char("b");
+        send_char("e");
+        send_char("g");
+        send_char("i");
+        send_char("n");
+        send_char("\n");
+        send_char(" ");
+        send_char(" ");
+        send_char(" ");
+        send_char(" ");
+        send_char("p");
+        send_char("_");
+        send_char("v");
+        send_char("a");
+        send_char("r");
+        send_char("_");
+        send_char("1");
+        send_char(" ");
+        send_char("<");
+        send_char("=");
+        send_char(" ");
+        send_char("2");
+        send_char("0");
+        send_char("0");
+        send_char(";");
+        send_char("\n");
         send_char("e");
         send_char("n");
         send_char("d");
@@ -172,7 +166,7 @@ module if_else_parser_tb();
         // Wait for parsing to complete
         wait(parsing_done || error_flag);
         #20;
-        
+
         // Display results
         if (parsing_done && !error_flag) begin
             $display("Test passed! Value %d assigned to the variable: %s. (var length: %d)", 
@@ -182,12 +176,13 @@ module if_else_parser_tb();
         else if (error_flag) begin
             $display("Error: %s (%0d)", 
                     error_code == 0 ? "No Error" :
-                    error_code == 1 ? "Invalid Keyword" :
-                    error_code == 2 ? "Variable Mismatch" :
-                    error_code == 3 ? "Invalid Character" :
-                    error_code == 4 ? "Missing Semicolon" :
-                    error_code == 5 ? "Missing Operator" :
-                    error_code == 6 ? "Syntax Error" : "Unknown Error",
+                    error_code == 1 ? "Invalid Keyword. One of more of the keywords 'begin', 'end', 'if', 'else' are missing or misspelled." :
+                    error_code == 2 ? "Variable Mismatch. The variable names in the true and false branch assignments do not match." :
+                    error_code == 3 ? "Invalid Character. You may have entered a character that is not allowed." :
+                    error_code == 4 ? "Missing Semicolon." :
+                    error_code == 5 ? "Missing Operator." :
+                    error_code == 6 ? "Syntax Error." :
+                    error_code == 7 ? "Parenthesis Mismatch. You may have mismatched parentheses, or parantheses at invalid places." : "Unknown Error",
                     error_code);
         end
         else begin
