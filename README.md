@@ -14,12 +14,13 @@ Where `valC`, `const1` and `const2` are of data type integer. Any whitespace cha
 
 The second input will be the user input, the corresponding script will prompt for it.
 Note that:
-- The identifiers in both the true and false branches of the if-else statement must be same and precisely the character `p`.
-- The variable for the conditional evaluation must be precisely the character `x`.
-- It supports `<=` as the assignment operator.
+- The identifiers in both the true and false branches of the if-else statement must be same, otherwise the parser throws an error.
+- The variable names can be any legal verilog name: [a-zA-Z][a-zA-Z0-9_]*, upto 15 characters long (can be tweaked).
+- It supports both `<=` and `=` as the assignment operators.
 - It supports integer values for the constants, thus negative values too.
 - It supports all the standard verilog comparators (`==`, `!=`, `<=`, `>=`, `<`, `>`).
-- Takes care of all whitespace characters (whitespace, tabs, newline char, etc.)
+- Takes care of all whitespace characters (whitespace, tabs, newline char, etc.).
+- Flags bad syntax and incorrect parentheses.
 
 ## Parser in C
 
@@ -40,19 +41,13 @@ for our verilog interpreter circuit described by `if_else_parser.v`. The generat
 to the interpreter. It also feeds in the user input value for `x`.
 
 `if_else_parser.v` is a circuit that takes in 7 bit ASCII characters, one at a time and performs the task of evaluating our if-else block followed
-by doing the necessary variable assignment. Note that:
-
-- The variable for the conditional evaluation must be precisely the character `x`.
-- It supports both `<=` and `==` for the assignment operators.
-- It supports integer values for the constants, thus negative values too.
-- It supports all the standard verilog comparators (`==`, `!=`, `<=`, `>=`, `<`, `>`).
-- Takes care of all whitespace characters (whitespace, tabs, newline char, etc.)
+by doing the necessary variable assignment. 
 
 To compile and run this, do:
 
 ```
-gcc .\c_parser.c -o c_parser && .\c_parser
+gcc .\c_parser_2.c -o c_parser && .\c_parser
 ```
 ```
-iverilog -o parser_gen if_else_parser.v if_else_parser_tb_gen.v && vvp .\parser_gen
+iverilog -o parser_gen if_else_parser_2.v if_else_parser_tb_gen.v && vvp .\parser_gen
 ```
