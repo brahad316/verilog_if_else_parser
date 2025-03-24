@@ -19,7 +19,8 @@ module if_else_parser_2 (
               INVALID_CHAR        = 4'd3,
               MISSING_SEMICOLON   = 4'd4,
               MISSING_OPERATOR    = 4'd5,
-              SYNTAX_ERROR        = 4'd6;
+              SYNTAX_ERROR        = 4'd6,
+              PAREN_MISMATCH      = 4'd7;
 
     // State encoding
     parameter IDLE                      = 0,
@@ -120,34 +121,7 @@ module if_else_parser_2 (
         end
     endfunction
 
-    // Debug function modified to handle arrays
-    // task display_debug;
-    //     integer i;
-    //     reg [127:0] cond_var_str, assign_var_str, assign_var2_str;  // For display only
-    //     begin
-    //         cond_var_str = "";
-    //         assign_var_str = "";
-    //         assign_var2_str = "";
-            
-    //         for (i = 0; i < cond_var_length; i = i + 1)
-    //             cond_var_str = {cond_var_str, cond_var[i]};
-            
-    //         for (i = 0; i < assignment_var_length; i = i + 1)
-    //             assign_var_str = {assign_var_str, assignment_var[i]};
-                
-    //         for (i = 0; i < assignment_var2_length; i = i + 1)
-    //             assign_var2_str = {assign_var2_str, assignment_var2[i]};
-                
-    //         $display("State: %d, curr_char: %c (%h), keyword_buffer: %h, keyword_index: %d", 
-    //                  state, ascii_char, ascii_char, keyword_buffer, keyword_index);
-    //         $display("cond_var: %s, assignment_var: %s, assignment_var2: %s, paren_count: %1d", 
-    //                  cond_var_str, assign_var_str, assign_var2_str, paren_count);
-    //         $display("valC: %d, const1: %d, const2: %d, error_code: %d", valC, const1, const2, error_code);
-    //         $display("---------------------------------------------------------------------------------------------------------------------------------------------\n");
-    //     end
-    // endtask
-
-    // In the "always" block for debug output:
+    // for debug:
     always @(posedge clk) begin
         $write("State: %2d, curr_char: %c (%h), keyword_buffer: %h, keyword_index: %0d, parsing_number: %1d\n", 
             state, ascii_char, ascii_char, keyword_buffer, keyword_index, parsing_number);
@@ -234,10 +208,6 @@ module if_else_parser_2 (
             end
         end
         else begin
-            // if(new_char) begin
-            //     display_debug;
-            // end
-
             case(state)
                 IDLE: begin
                     if(new_char) begin
@@ -309,7 +279,6 @@ module if_else_parser_2 (
                             end
                         end
                         else if(ascii_char == ")" && reading_var) begin
-                            // Special case: closing parenthesis without operator - error
                             paren_count <= paren_count - 1;
                         end
                         else if(reading_var && (is_whitespace || ascii_char == ">" || ascii_char == "<" || 
@@ -318,7 +287,7 @@ module if_else_parser_2 (
                             state <= READ_COND_OPERATOR;
                             reading_var <= 0; 
                             
-                            // Process operator right away if not whitespace
+                            // Process operator rightaway if not whitespace
                             if(!is_whitespace) begin
                                 if(paren_count == 0) begin
                                     error_flag <= 1;
@@ -353,14 +322,14 @@ module if_else_parser_2 (
                         else if(ascii_char == ")") begin
                             if(paren_count == 0) begin
                                 error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
+                                error_code <= PAREN_MISMATCH;
                             end
                             paren_count <= paren_count - 1;
                         end
                         else if(ascii_char == "<" || ascii_char == ">" || ascii_char == "=" || ascii_char == "!") begin
                             if(paren_count == 0) begin
                                 error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
+                                error_code <= PAREN_MISMATCH;
                             end
                             op_first <= ascii_char;
                             state <= READ_COND_OPERATOR2;
@@ -378,7 +347,6 @@ module if_else_parser_2 (
                         // check if there's a negative sign ("-") before the digit
                         if(ascii_char == "-") begin
                             is_valC_negative <= 1;
-                            // state <= READ_VALC; // ???
                         end
                         case(op_first)
                             "<": begin
@@ -480,8 +448,8 @@ module if_else_parser_2 (
                             
                             if(ascii_char == ")") begin
                                 if(paren_count == 0) begin
-                                error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
+                                    error_flag <= 1;
+                                    error_code <= PAREN_MISMATCH;
                                 end
                                 paren_count <= paren_count - 1;
                                 state <= READ_CLOSE_PAREN;
@@ -504,7 +472,7 @@ module if_else_parser_2 (
                             keyword_buffer <= "b";
                             if(paren_count != 0) begin
                                 error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
+                                error_code <= PAREN_MISMATCH;
                             end
                             state <= READ_BEGIN;
                         end
@@ -568,7 +536,7 @@ module if_else_parser_2 (
                         end
                         else if(!reading_var && is_id_start) begin
                             // First character of identifier - must be a letter
-                            assignment_var_array[0] <= ascii_char; // Start at index 0
+                            assignment_var_array[0] <= ascii_char;
                             assignment_var_length <= 1;
                             cond_var_idx <= 1; // Reuse this counter for tracking position
                             reading_var <= 1;
@@ -584,7 +552,6 @@ module if_else_parser_2 (
                             end
                         end
                         else if(ascii_char == ")" && reading_var) begin
-                            // Special case: closing parenthesis without operator - error
                             paren_count <= paren_count - 1;
                         end
                         else if(reading_var && (is_whitespace || ascii_char == "=" || ascii_char == "<")) begin
@@ -592,7 +559,7 @@ module if_else_parser_2 (
                             state <= READ_ASSIGNMENT_OPERATOR;
                             reading_var <= 0;
                             
-                            // Process operator right away if not whitespace
+                            // Process operator rightaway if not whitespace
                             if(!is_whitespace) begin
                                 if(ascii_char == "<") begin
                                     blocking_assignment1 <= 0;
@@ -609,7 +576,6 @@ module if_else_parser_2 (
                             end
                         end
                         else if(ascii_char == "(") begin
-                            // Opening nested parenthesis
                             paren_count <= paren_count + 1;
                         end
                         else begin
@@ -647,7 +613,7 @@ module if_else_parser_2 (
                     end
                 end
 
-                // Accumulate constant for if branch (const1)
+                // Accumulate constant for the true branch (const1)
                 READ_CONST1: begin
                     if(new_char) begin
                         if(is_whitespace) begin
@@ -665,7 +631,7 @@ module if_else_parser_2 (
                         else if(ascii_char == ")") begin
                             if(num_buffer == 0) begin
                                 error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
+                                error_code <= PAREN_MISMATCH;
                             end
                             else begin
                                 paren_count <= paren_count - 1;
@@ -703,7 +669,7 @@ module if_else_parser_2 (
                     if(new_char) begin
                         if(paren_count != 0) begin
                             error_flag <= 1;
-                            error_code <= SYNTAX_ERROR;
+                            error_code <= PAREN_MISMATCH;
                         end
                         if(is_whitespace) begin
                             state <= READ_SEMICOLON1;
@@ -735,10 +701,6 @@ module if_else_parser_2 (
                                 keyword_index <= 0;
                                 state <= READ_ELSE;
                             end 
-                            // else begin
-                            //     error_flag <= 1;
-                            //     error_code <= INVALID_KEYWORD;
-                            // end
                             
                             default: begin
                                 error_flag <= 1;
@@ -852,11 +814,6 @@ module if_else_parser_2 (
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
                             end
-                            
-                            // default: begin
-                            //     error_flag <= 1;
-                            //     error_code <= SYNTAX_ERROR;
-                            // end
                         endcase
                     end
                 end
@@ -892,7 +849,6 @@ module if_else_parser_2 (
                             end
                         end
                         else if(ascii_char == ")" && reading_var) begin
-                            // Special case: closing parenthesis without operator - error
                             paren_count <= paren_count - 1;
                         end
                         else if(reading_var && (is_whitespace || ascii_char == "=" || ascii_char == "<")) begin
@@ -908,7 +864,7 @@ module if_else_parser_2 (
                                 $display("ERROR: Variables mismatch between branches!");
                             end
                             
-                            // Process operator right away if not whitespace
+                            // Process operator rightaway if not whitespace
                             if(!is_whitespace) begin
                                 if(ascii_char == "<") begin
                                     blocking_assignment2 <= 0;
@@ -925,7 +881,6 @@ module if_else_parser_2 (
                             end
                         end
                         else if(ascii_char == "(") begin
-                            // Opening nested parenthesis
                             paren_count <= paren_count + 1;
                         end
                         else begin
@@ -981,7 +936,7 @@ module if_else_parser_2 (
                         else if(ascii_char == ")") begin
                             if(num_buffer == 0) begin
                                 error_flag <= 1;
-                                error_code <= SYNTAX_ERROR;
+                                error_code <= PAREN_MISMATCH;
                             end
                             else begin
                                 paren_count <= paren_count - 1;
@@ -1063,7 +1018,7 @@ module if_else_parser_2 (
                     end
                 end
 
-                // Evaluate the condition using the selected comparator.
+                // Evaluate the condition using the selected comparator
                 EVALUATE: begin
                     if(parsing_done) begin
                         state <= IDLE;
