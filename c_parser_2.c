@@ -69,7 +69,7 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fprintf(output_file, "    end\n");
     fprintf(output_file, "    endtask\n\n");
 
-    // Add the extract_var_name function - fixed to properly handle character order
+    // Add the extract_var_name function
     fprintf(output_file, "    // Helper function to extract variable name from packed format\n");
     fprintf(output_file, "    function [8*16:1] extract_var_name;\n");
     fprintf(output_file, "        input [16*7-1:0] packed_var;\n");
@@ -215,10 +215,9 @@ void generate_testbench(const char *input_filename, const char *output_filename,
     fclose(input_file);
     fclose(output_file);
     
-    printf("Testbench generated successfully. The parser will:\n");
-    printf("1. Read variable names dynamically from your input code WITH preserved whitespace\n");
-    printf("2. Use the value %d for condition evaluation\n", x_value);
-    printf("3. Output the result of the if-else statement and variable name\n");
+    printf("Testbench generated successfully. The verilog parser will evaluate your input based on the value you've provided (x = %d), and will do the necessary assignment.\n", x_value);
+    printf("To compile the verilog parser and testbench, do: iverilog -o parser_gen if_else_parser_2.v if_else_parser_tb_gen.v\n");
+    printf("To run the parser, do: vvp .\\parser_gen\n");
 }
 
 int main() {
