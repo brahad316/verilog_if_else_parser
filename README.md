@@ -1,13 +1,13 @@
 ## Input file structure
 The input file must be a verilog (`.v`) file of the follwoing format:
 ```
-if(x == valC) 
+if(x_var == valC) 
     begin 
-      p  == const1;
+        p_var  == const1;
     end
 else 
     begin
-    p <= const2;
+        p_var <= const2;
     end
 ```
 Where `valC`, `const1` and `const2` are of data type integer. Any whitespace characters will be treated the way iverilog does.
