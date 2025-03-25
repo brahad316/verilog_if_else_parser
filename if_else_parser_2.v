@@ -44,7 +44,8 @@ module if_else_parser_2 (
               READ_CONST2               = 20, // Read constant for else branch
               READ_SEMICOLON2           = 21, // Expect semicolon after const2
               READ_END2                 = 22, // Read "end" keyword for else branch
-              EVALUATE                  = 23;
+              EVALUATE                  = 23,
+              ERROR                     = 24; // Error state, machine remains here until rst
 
     reg [4:0] state;
 
@@ -222,6 +223,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -234,6 +236,7 @@ module if_else_parser_2 (
                         end else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -253,6 +256,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -293,6 +297,7 @@ module if_else_parser_2 (
                                 if(paren_count == 0) begin
                                     error_flag <= 1;
                                     error_code <= SYNTAX_ERROR;
+                                    state <= ERROR;
                                 end
                                 op_first <= ascii_char;
                                 state <= READ_COND_OPERATOR2;
@@ -310,6 +315,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -324,6 +330,7 @@ module if_else_parser_2 (
                             if(paren_count == 0) begin
                                 error_flag <= 1;
                                 error_code <= PAREN_MISMATCH;
+                                state <= ERROR;
                             end
                             paren_count <= paren_count - 1;
                         end
@@ -331,6 +338,7 @@ module if_else_parser_2 (
                             if(paren_count == 0) begin
                                 error_flag <= 1;
                                 error_code <= PAREN_MISMATCH;
+                                state <= ERROR;
                             end
                             op_first <= ascii_char;
                             state <= READ_COND_OPERATOR2;
@@ -338,6 +346,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_CHAR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -369,6 +378,7 @@ module if_else_parser_2 (
                                 else begin
                                     error_flag <= 1;
                                     error_code <= SYNTAX_ERROR;
+                                    state <= ERROR;
                                 end
                             end
                             ">": begin
@@ -390,6 +400,7 @@ module if_else_parser_2 (
                                 else begin
                                     error_flag <= 1;
                                     error_code <= SYNTAX_ERROR;
+                                    state <= ERROR;
                                 end
                             end
                             "=": begin
@@ -400,6 +411,7 @@ module if_else_parser_2 (
                                 else begin
                                     error_flag <= 1;
                                     error_code <= MISSING_OPERATOR;
+                                    state <= ERROR;
                                 end
                             end
                             "!": begin
@@ -410,11 +422,13 @@ module if_else_parser_2 (
                                 else begin
                                     error_flag <= 1;
                                     error_code <= MISSING_OPERATOR;
+                                    state <= ERROR;
                                 end
                             end
                             default: begin
                                     error_flag <= 1;
                                     error_code <= SYNTAX_ERROR;
+                                    state <= ERROR;
                             end
                         endcase
                         // $display("op_first: %c, ascii_char: %c, comparator: %b", op_first, ascii_char, comparator);
@@ -451,6 +465,7 @@ module if_else_parser_2 (
                                 if(paren_count == 0) begin
                                     error_flag <= 1;
                                     error_code <= PAREN_MISMATCH;
+                                    state <= ERROR;
                                 end
                                 paren_count <= paren_count - 1;
                                 state <= READ_CLOSE_PAREN;
@@ -458,6 +473,7 @@ module if_else_parser_2 (
                             else begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                         end 
                     end
@@ -474,6 +490,7 @@ module if_else_parser_2 (
                             if(paren_count != 0) begin
                                 error_flag <= 1;
                                 error_code <= PAREN_MISMATCH;
+                                state <= ERROR;
                             end
                             state <= READ_BEGIN;
                         end
@@ -483,6 +500,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -496,6 +514,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             2: if(ascii_char == "g") begin
@@ -504,6 +523,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
 
                             3: if(ascii_char == "i") begin
@@ -512,6 +532,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             4: if(ascii_char == "n") begin
@@ -521,11 +542,13 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             default: begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                         endcase
                     end
@@ -537,6 +560,7 @@ module if_else_parser_2 (
                         else if(whitespace_count == 0) begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                         else if(is_whitespace && !reading_var) begin
                             state <= READ_ASSIGNMENT_VAR;
@@ -588,6 +612,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -601,6 +626,7 @@ module if_else_parser_2 (
                         else if(whitespace_count == 0) begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                         else if(ascii_char == ")") paren_count <= paren_count - 1;
                         else if(ascii_char == "<") begin
@@ -632,6 +658,7 @@ module if_else_parser_2 (
                             if(is_const1_negative || parsing_number) begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                             else begin 
                                 state <= READ_CONST1;
@@ -644,6 +671,7 @@ module if_else_parser_2 (
                             if(num_buffer == 0) begin
                                 error_flag <= 1;
                                 error_code <= PAREN_MISMATCH;
+                                state <= ERROR;
                             end
                             else begin
                                 paren_count <= paren_count - 1;
@@ -673,6 +701,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -682,6 +711,7 @@ module if_else_parser_2 (
                         if(paren_count != 0) begin
                             error_flag <= 1;
                             error_code <= PAREN_MISMATCH;
+                            state <= ERROR;
                         end
                         if(is_whitespace) begin
                             state <= READ_SEMICOLON1;
@@ -694,6 +724,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -707,6 +738,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             2: if(ascii_char == "d") begin
@@ -718,6 +750,7 @@ module if_else_parser_2 (
                             default: begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                         endcase
                     end
@@ -733,6 +766,7 @@ module if_else_parser_2 (
                         else if(whitespace_count == 0) begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                         else if(ascii_char == "e") begin
                             keyword_index <= 1;
@@ -742,6 +776,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -755,6 +790,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             2: if(ascii_char == "s") begin
@@ -763,6 +799,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
 
                             3: if(ascii_char == "e") begin
@@ -772,11 +809,13 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             default: begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                         endcase
                     end
@@ -791,6 +830,7 @@ module if_else_parser_2 (
                         else if(whitespace_count == 0) begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                         else if(ascii_char == "b") begin
                             keyword_index <= 1;
@@ -800,6 +840,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -813,6 +854,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             2: if(ascii_char == "g") begin
@@ -821,6 +863,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             3: if(ascii_char == "i") begin
@@ -829,6 +872,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
 
                             4: if(ascii_char == "n") begin
@@ -838,6 +882,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                         endcase
                     end
@@ -852,6 +897,7 @@ module if_else_parser_2 (
                         else if(!is_whitespace && whitespace_count == 0) begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                         else if(!reading_var && is_id_start) begin
                             // First character of identifier - must be a letter
@@ -874,6 +920,7 @@ module if_else_parser_2 (
                                 if(!var_names_match(15)) begin
                                     error_flag <= 1;
                                     error_code <= VAR_MISMATCH;
+                                    state <= ERROR;
                                     $display("ERROR: Variables mismatch between branches!");
                                 end
                             end
@@ -891,6 +938,7 @@ module if_else_parser_2 (
                             if(!var_names_match(15)) begin
                                 error_flag <= 1;
                                 error_code <= VAR_MISMATCH;
+                                state <= ERROR;
                                 $display("ERROR: Variables mismatch between branches!");
                             end
                             
@@ -916,6 +964,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -955,6 +1004,7 @@ module if_else_parser_2 (
                             if(is_const2_negative || parsing_number) begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                             else begin 
                                 state <= READ_CONST2;
@@ -967,6 +1017,7 @@ module if_else_parser_2 (
                             if(num_buffer == 0) begin
                                 error_flag <= 1;
                                 error_code <= PAREN_MISMATCH;
+                                state <= ERROR;
                             end
                             else begin
                                 paren_count <= paren_count - 1;
@@ -996,6 +1047,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -1005,6 +1057,7 @@ module if_else_parser_2 (
                         if(paren_count != 0) begin
                             error_flag <= 1;
                             error_code <= SYNTAX_ERROR;
+                            state <= ERROR;
                         end
                         if(is_whitespace) begin
                             state <= READ_SEMICOLON2;
@@ -1017,6 +1070,7 @@ module if_else_parser_2 (
                         else begin
                             error_flag <= 1;
                             error_code <= INVALID_KEYWORD;
+                            state <= ERROR;
                         end
                     end
                 end
@@ -1030,6 +1084,7 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             2: if(ascii_char == "d") begin
@@ -1038,11 +1093,13 @@ module if_else_parser_2 (
                             end else begin
                                 error_flag <= 1;
                                 error_code <= INVALID_KEYWORD;
+                                state <= ERROR;
                             end
                             
                             default: begin
                                 error_flag <= 1;
                                 error_code <= SYNTAX_ERROR;
+                                state <= ERROR;
                             end
                         endcase
                     end
@@ -1073,7 +1130,20 @@ module if_else_parser_2 (
                     end
                 end
 
-                default: state <= IDLE;
+                ERROR: begin
+                    parsing_done <= 0;  
+                    // reset values (optional)
+                    p <= 0;  
+                    assignment_var <= 0;  
+                    assignment_var_length <= 0;
+                end
+
+                default: begin
+                    if(error_flag) begin
+                        state <= ERROR;
+                    end
+                    else state <= IDLE;
+                end
             endcase
         end
     end
