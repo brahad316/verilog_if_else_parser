@@ -53,10 +53,10 @@ by doing the necessary variable assignment.
 To compile and run this, do:
 
 ```
-gcc .\c_parser_2.c -o c_parser && .\c_parser
+gcc c_parser_2.c -o c_parser && ./c_parser
 ```
 ```
-iverilog -o parser_gen if_else_parser_2.v if_else_parser_tb_gen.v && vvp .\parser_gen
+iverilog -o parser_gen if_else_parser_2.v if_else_parser_tb_gen.v && vvp ./parser_gen
 ```
 ## FSM overview
 
